@@ -1,5 +1,5 @@
 from datetime import datetime, timedelta, timezone
-from typing import List, Dict
+from typing import List
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from models import Photo, ListeningHistory
@@ -42,7 +42,7 @@ class MatchingService:
         user_id: int,
         time_window_hours: int = 3,
         max_suggestions: int = 5
-    ) -> List[Dict]:
+    ) -> List[dict]:
         """
         Suggest tracks for a photo based on time proximity.
         Returns tracks played within the time window, sorted by proximity.
@@ -87,27 +87,3 @@ class MatchingService:
         
         # Return top suggestions
         return suggestions[:max_suggestions]
-    
-    @staticmethod
-    async def auto_suggest_mappings_for_memory(
-        db: AsyncSession,
-        photos: List[Photo],
-        user_id: int,
-        time_window_hours: int = 3
-    ) -> Dict[int, List[Dict]]:
-        """
-        Auto-suggest track mappings for all photos in a memory.
-        Returns a dict mapping photo_id to list of suggested tracks.
-        """
-        suggestions_by_photo = {}
-        
-        for photo in photos:
-            suggestions = await MatchingService.suggest_tracks_for_photo(
-                db=db,
-                photo=photo,
-                user_id=user_id,
-                time_window_hours=time_window_hours
-            )
-            suggestions_by_photo[photo.id] = suggestions
-        
-        return suggestions_by_photo

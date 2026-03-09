@@ -126,7 +126,7 @@ class MemoryBase(BaseModel):
 
 
 class MemoryCreate(MemoryBase):
-    photos: List[PhotoBase] = []
+    photo: Optional[PhotoBase] = None
     google_access_token: Optional[str] = None  # Token for downloading Google Photos at creation time
 
 
@@ -141,8 +141,8 @@ class MemoryResponse(MemoryBase):
     user_id: int
     created_at: datetime
     updated_at: datetime
-    photos: List[PhotoResponse] = []
-    mappings: List[TrackPhotoMappingResponse] = []
+    photo: Optional[PhotoResponse] = None
+    mapping: Optional[TrackPhotoMappingResponse] = None
     
     class Config:
         from_attributes = True
@@ -172,10 +172,7 @@ class TrackSuggestion(BaseModel):
     time_difference_minutes: int
 
 
-class PhotoSuggestionResponse(BaseModel):
-    photo_id: int
-    photo: PhotoResponse
-    suggested_tracks: List[TrackSuggestion]
+
 
 
 # Spotify Auth Schemas
