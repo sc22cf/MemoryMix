@@ -89,10 +89,10 @@ class ApiClient {
     return data;
   }
 
-  async getHistoryCount() {
-    const { data } = await this.client.get('/lastfm/history/count');
-    return data;
-  }
+  // async getHistoryCount() {
+  //   const { data } = await this.client.get('/lastfm/history/count');
+  //   return data;
+  // }
 
   // Memory endpoints
   async createMemory(memory: {

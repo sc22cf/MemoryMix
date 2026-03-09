@@ -15,11 +15,11 @@ router = APIRouter(prefix="/lastfm", tags=["lastfm"])
 
 @router.post("/sync")
 async def sync_listening_history(
-    pages: int = Query(default=1, ge=1, le=50, description="Number of pages to sync (200 tracks per page)"),
+    pages: int = Query(default=1, ge=1, le=100, description="Number of pages to sync (200 tracks per page)"),
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    """Sync user's recent listening history from Last.fm"""
+    """Sync user's listening history from Last.fm (up to 100 pages / 20,000 tracks)"""
     if not user.lastfm_username:
         raise HTTPException(status_code=400, detail="Last.fm username not set")
 
@@ -53,14 +53,14 @@ async def get_listening_history(
     return [ListeningHistoryResponse.model_validate(track) for track in tracks]
 
 
-@router.get("/history/count")
-async def get_history_count(
-    db: AsyncSession = Depends(get_db),
-    user: User = Depends(get_current_user),
-):
-    """Get total count of listening history entries"""
-    count = await LastfmService.get_history_count(db, user.id)
-    return {"count": count}
+# @router.get("/history/count")
+# async def get_history_count(
+#     db: AsyncSession = Depends(get_db),
+#     user: User = Depends(get_current_user),
+# ):
+#     """Get total count of listening history entries"""
+#     count = await LastfmService.get_history_count(db, user.id)
+#     return {"count": count}
 
 
 @router.get("/history/all")
@@ -87,26 +87,6 @@ async def get_full_listening_history(
         "page": page,
         "per_page": per_page,
         "total_pages": (total + per_page - 1) // per_page if total > 0 else 0,
-    }
-
-
-@router.post("/sync/full")
-async def sync_full_history(
-    max_pages: int = Query(default=10, ge=1, le=100, description="Max pages to fetch (200 tracks each)"),
-    db: AsyncSession = Depends(get_db),
-    user: User = Depends(get_current_user),
-):
-    """Sync a large amount of listening history from Last.fm"""
-    if not user.lastfm_username:
-        raise HTTPException(status_code=400, detail="Last.fm username not set")
-
-    tracks_added = await LastfmService.sync_full_history(
-        db, user, max_pages=max_pages
-    )
-
-    return {
-        "message": f"Successfully synced {tracks_added} new tracks across {max_pages} pages",
-        "tracks_added": tracks_added,
     }
 
 

@@ -237,16 +237,4 @@ class LastfmService:
         )
         return data
 
-    @staticmethod
-    async def sync_full_history(
-        db: AsyncSession,
-        user: User,
-        max_pages: int = 10,
-    ) -> int:
-        """Sync multiple pages of listening history"""
-        return await LastfmService.sync_listening_history(
-            db=db,
-            user=user,
-            limit=200,
-            pages=max_pages,
-        )
+

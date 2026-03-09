@@ -317,6 +317,26 @@ export default function MemoryDetailPage() {
             );
           })}
         </div>
+
+        {/* Description - Bottom Section */}
+        {memory.description && (
+          <div className="mt-8 mb-24">
+            <div className="relative">
+              <div className="absolute inset-0 bg-gradient-to-r from-accent/5 via-accent/10 to-accent/5 rounded-2xl blur-xl" />
+              <div className="relative bg-surface/80 backdrop-blur-sm border border-border/50 rounded-2xl p-6">
+                <div className="flex items-start gap-4">
+                  <div className="w-1 h-full min-h-[24px] bg-gradient-to-b from-accent to-accent/30 rounded-full flex-shrink-0" />
+                  <div>
+                    <p className="text-xs uppercase tracking-wider text-muted/60 mb-2 font-medium">Memory</p>
+                    <p className="text-foreground/90 leading-relaxed text-sm md:text-base italic">
+                      "{memory.description}"
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Spotify Player — fixed to bottom */}

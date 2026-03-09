@@ -186,6 +186,18 @@ export default function MemoryDetailModal({
             {format(new Date(memory.memory_date), 'MMMM dd, yyyy')}
           </p>
 
+          {/* Description */}
+          {memory.description && (
+            <div className="relative">
+              <div className="flex items-start gap-3 bg-surface-hover/50 border border-border/30 rounded-xl p-4">
+                <div className="w-0.5 h-full min-h-[20px] bg-gradient-to-b from-accent to-accent/20 rounded-full flex-shrink-0" />
+                <p className="text-foreground/80 text-sm leading-relaxed italic">
+                  "{memory.description}"
+                </p>
+              </div>
+            </div>
+          )}
+
           {/* Current Track */}
           {!isEditing && (
             <div className="bg-surface-hover border border-border/50 rounded-xl p-4">

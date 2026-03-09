@@ -137,7 +137,7 @@ export default function HistoryPage() {
         </div>
       </header>
 
-      <div className="container mx-auto px-4 py-8">
+      <div className="container mx-auto px-4 py-8 pb-32">
         {/* Title & Stats */}
         <div className="mb-6">
           <h1 className="text-2xl font-bold flex items-center gap-3 mb-1.5">
