@@ -1,6 +1,7 @@
 'use client';
 
 import { createContext, useContext, useEffect, useRef, useState, useCallback, ReactNode } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
 import { spotifyTokenManager } from '@/lib/spotify-token';
 import { playOnDevice, transferPlayback } from '@/lib/spotify-api';
 
@@ -80,6 +81,8 @@ function ensureSDKScript(): Promise<void> {
 }
 
 export function SpotifyPlayerProvider({ children }: { children: ReactNode }) {
+  const { user } = useAuth();
+
   // ── refs (stable across re-renders & StrictMode double-mount) ──
   const playerRef = useRef<any>(null);
   const initializingRef = useRef(false);
@@ -119,6 +122,8 @@ export function SpotifyPlayerProvider({ children }: { children: ReactNode }) {
 
   // ── initialize player (once, StrictMode-safe) ──
   useEffect(() => {
+    // Don't initialize until user is logged in with Spotify connected
+    if (!user?.spotify_connected) return;
     // Guard: if the player was already created (StrictMode re-mount), skip.
     if (initializedRef.current || initializingRef.current) return;
     initializingRef.current = true;
@@ -249,7 +254,7 @@ export function SpotifyPlayerProvider({ children }: { children: ReactNode }) {
       setIsReady(false);
       setDeviceId(null);
     };
-  }, []); // intentionally empty — runs once
+  }, [user?.spotify_connected]); // re-run when Spotify connection status changes
 
   // ── Unlock audio on first user interaction ──
   useEffect(() => {

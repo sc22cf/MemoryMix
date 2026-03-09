@@ -97,15 +97,15 @@ export default function MemoryDetailPage() {
   };
 
   const handleAddSuggestedMapping = (
-    photoId: number,
     trackId: number,
     confidenceScore: number,
     track?: any,
   ) => {
+    if (!memory?.photo) return;
     createMappingMutation.mutate({
       mapping: {
         memory_id: memoryId,
-        photo_id: photoId,
+        photo_id: memory.photo.id,
         track_id: trackId,
         is_auto_suggested: true,
         confidence_score: confidenceScore,
@@ -170,9 +170,9 @@ export default function MemoryDetailPage() {
           </div>
 
           <div className="flex gap-4 text-xs text-muted">
-            <span>{memory.photos?.length || 0} photos</span>
+            <span>{memory.photo ? '1 photo' : 'No photo'}</span>
             <span className="w-1 h-1 rounded-full bg-border self-center" />
-            <span>{memory.mappings?.length || 0} track mappings</span>
+            <span>{memory.mapping ? '1 track mapping' : 'No track mapping'}</span>
           </div>
         </div>
 
@@ -191,132 +191,105 @@ export default function MemoryDetailPage() {
         {showSuggestions && suggestions && (
           <div className="bg-accent-subtle border border-accent/20 rounded-xl p-6 mb-6">
             <h2 className="text-lg font-semibold mb-4 text-accent">Suggested Tracks</h2>
-            {suggestions.map((photoSuggestion: any) => (
-              <div key={photoSuggestion.photo_id} className="mb-6 last:mb-0">
-                <div className="flex items-center gap-3 mb-3">
-                  <img
-                    src={getPhotoProxyUrl(photoSuggestion.photo.base_url, 200, 200, photoSuggestion.photo.local_url)}
-                    alt={photoSuggestion.photo.filename}
-                    className="w-14 h-14 rounded-lg object-cover"
-                  />
-                  <div className="flex-1">
-                    <h3 className="font-medium text-sm">{photoSuggestion.photo.filename}</h3>
-                    <p className="text-xs text-muted">
-                      {format(new Date(photoSuggestion.photo.creation_time), 'MMM dd, yyyy hh:mm a')}
-                    </p>
-                  </div>
-                </div>
-                {photoSuggestion.suggested_tracks.length > 0 ? (
-                  <div className="space-y-2 ml-[68px]">
-                    {photoSuggestion.suggested_tracks.map((track: any) => (
-                      <div
-                        key={track.track_id}
-                        className="bg-surface border border-border rounded-lg p-3 flex items-center justify-between"
-                      >
-                        <div className="flex items-center gap-3">
-                          {track.album_image_url && (
-                            <img
-                              src={track.album_image_url}
-                              alt={track.album_name}
-                              className="w-9 h-9 rounded-md"
-                            />
-                          )}
-                          <div>
-                            <div className="text-sm font-medium">{track.track_name}</div>
-                            <div className="text-xs text-muted">{track.artist_name}</div>
-                            <div className="text-[10px] text-muted/50 mt-0.5">
-                              {track.confidence_score}% match · {track.time_difference_minutes}m apart
-                            </div>
-                          </div>
+            {suggestions.length > 0 ? (
+              <div className="space-y-2">
+                {suggestions.map((track: any) => (
+                  <div
+                    key={track.track_id}
+                    className="bg-surface border border-border rounded-lg p-3 flex items-center justify-between"
+                  >
+                    <div className="flex items-center gap-3">
+                      {track.album_image_url && (
+                        <img
+                          src={track.album_image_url}
+                          alt={track.album_name}
+                          className="w-9 h-9 rounded-md"
+                        />
+                      )}
+                      <div>
+                        <div className="text-sm font-medium">{track.track_name}</div>
+                        <div className="text-xs text-muted">{track.artist_name}</div>
+                        <div className="text-[10px] text-muted/50 mt-0.5">
+                          {track.confidence_score}% match · {track.time_difference_minutes}m apart
                         </div>
-                        <button
-                          onClick={() => handleAddSuggestedMapping(
-                            photoSuggestion.photo_id,
-                            track.track_id,
-                            track.confidence_score,
-                            track,
-                          )}
-                          className="bg-accent hover:bg-accent-hover text-background px-3 py-1.5 rounded-md flex items-center gap-1.5 text-xs font-medium"
-                        >
-                          <Plus className="w-3 h-3" />
-                          Add
-                        </button>
                       </div>
-                    ))}
+                    </div>
+                    <button
+                      onClick={() => handleAddSuggestedMapping(
+                        track.track_id,
+                        track.confidence_score,
+                        track,
+                      )}
+                      className="bg-accent hover:bg-accent-hover text-background px-3 py-1.5 rounded-md flex items-center gap-1.5 text-xs font-medium"
+                    >
+                      <Plus className="w-3 h-3" />
+                      Add
+                    </button>
                   </div>
-                ) : (
-                  <p className="text-xs text-muted ml-[68px]">No tracks found within time window</p>
-                )}
+                ))}
               </div>
-            ))}
+            ) : (
+              <p className="text-xs text-muted">No tracks found within time window</p>
+            )}
           </div>
         )}
 
-        {/* Photos and Mappings */}
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {memory.photos && memory.photos.map((photo: any) => {
-            const photoMappings = memory.mappings?.filter((m: any) => m.photo_id === photo.id) || [];
-            
-            return (
-              <div key={photo.id} className="bg-surface border border-border rounded-xl overflow-hidden group">
-                <div className="aspect-square bg-surface relative overflow-hidden">
-                  <img
-                    src={getPhotoProxyUrl(photo.base_url, 600, 600, photo.local_url)}
-                    alt={photo.filename}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                  />
-                </div>
-                <div className="p-4">
-                  <h3 className="font-medium text-sm mb-1 truncate">{photo.filename}</h3>
-                  <p className="text-[10px] text-muted/50 mb-3">
-                    {format(new Date(photo.creation_time), 'MMM dd, yyyy hh:mm a')}
-                  </p>
-
-                  {/* Track Mappings */}
-                  {photoMappings.length > 0 ? (
-                    <div className="space-y-2">
-                      {photoMappings.map((mapping: any) => (
-                        <div
-                          key={mapping.id}
-                          className="bg-surface-hover border border-border/50 rounded-lg p-2.5 relative group/mapping cursor-pointer hover:border-accent/30 transition-colors"
-                          onClick={() => mapping.track && playTrack(mapping.track)}
-                        >
-                          <div className="flex items-center gap-2">
-                            <Music className="w-3.5 h-3.5 text-accent flex-shrink-0" />
-                            <div className="flex-1 min-w-0">
-                              <div className="font-medium text-xs truncate">
-                                {mapping.track?.track_name}
-                              </div>
-                              <div className="text-[10px] text-muted truncate">
-                                {mapping.track?.artist_name}
-                              </div>
-                            </div>
-                          </div>
-                          {mapping.is_auto_suggested && (
-                            <span className="text-[10px] text-accent/70 mt-1 block">
-                              Auto-suggested · {mapping.confidence_score}%
-                            </span>
-                          )}
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              deleteMappingMutation.mutate(mapping.id);
-                            }}
-                            className="absolute top-2 right-2 opacity-0 group-hover/mapping:opacity-100 text-danger hover:bg-danger/10 p-1 rounded transition-opacity"
-                          >
-                            <Trash2 className="w-3 h-3" />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-xs text-muted/40 italic">No tracks mapped</p>
-                  )}
-                </div>
+        {/* Photo and Mapping */}
+        {memory.photo && (
+          <div className="max-w-lg">
+            <div className="bg-surface border border-border rounded-xl overflow-hidden group">
+              <div className="aspect-square bg-surface relative overflow-hidden">
+                <img
+                  src={getPhotoProxyUrl(memory.photo.base_url, 600, 600, memory.photo.local_url)}
+                  alt={memory.photo.filename}
+                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                />
               </div>
-            );
-          })}
-        </div>
+              <div className="p-4">
+                <h3 className="font-medium text-sm mb-1 truncate">{memory.photo.filename}</h3>
+                <p className="text-[10px] text-muted/50 mb-3">
+                  {format(new Date(memory.photo.creation_time), 'MMM dd, yyyy hh:mm a')}
+                </p>
+
+                {/* Track Mapping */}
+                {memory.mapping ? (
+                  <div
+                    className="bg-surface-hover border border-border/50 rounded-lg p-2.5 relative group/mapping cursor-pointer hover:border-accent/30 transition-colors"
+                    onClick={() => memory.mapping?.track && playTrack(memory.mapping.track)}
+                  >
+                    <div className="flex items-center gap-2">
+                      <Music className="w-3.5 h-3.5 text-accent flex-shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <div className="font-medium text-xs truncate">
+                          {memory.mapping.track?.track_name}
+                        </div>
+                        <div className="text-[10px] text-muted truncate">
+                          {memory.mapping.track?.artist_name}
+                        </div>
+                      </div>
+                    </div>
+                    {memory.mapping.is_auto_suggested && (
+                      <span className="text-[10px] text-accent/70 mt-1 block">
+                        Auto-suggested · {memory.mapping.confidence_score}%
+                      </span>
+                    )}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        deleteMappingMutation.mutate(memory.mapping!.id);
+                      }}
+                      className="absolute top-2 right-2 opacity-0 group-hover/mapping:opacity-100 text-danger hover:bg-danger/10 p-1 rounded transition-opacity"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                    </button>
+                  </div>
+                ) : (
+                  <p className="text-xs text-muted/40 italic">No track mapped</p>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Description - Bottom Section */}
         {memory.description && (

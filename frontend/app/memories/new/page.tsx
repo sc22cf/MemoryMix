@@ -24,12 +24,12 @@ export default function NewMemoryPage() {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [memoryDate, setMemoryDate] = useState('');
-  const [selectedPhotos, setSelectedPhotos] = useState<any[]>([]);
+  const [selectedPhoto, setSelectedPhoto] = useState<any | null>(null);
   const [loading, setLoading] = useState(false);
   const [pickerError, setPickerError] = useState<string | null>(null);
 
   const handlePhotosPicked = useCallback((photos: any[]) => {
-    setSelectedPhotos((prev) => [...prev, ...photos]);
+    if (photos.length > 0) setSelectedPhoto(photos[0]);
   }, []);
 
   const handlePickerError = useCallback((msg: string) => {
@@ -54,24 +54,22 @@ export default function NewMemoryPage() {
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
-    if (!files) return;
+    if (!files || files.length === 0) return;
 
-    Array.from(files).forEach((file) => {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        const photo = {
-          google_photo_id: `local_${Date.now()}_${Math.random()}`,
-          base_url: event.target?.result as string,
-          filename: file.name,
-          mime_type: file.type,
-          creation_time: new Date().toISOString(),
-          width: null,
-          height: null,
-        };
-        setSelectedPhotos((prev) => [...prev, photo]);
-      };
-      reader.readAsDataURL(file);
-    });
+    const file = files[0];
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      setSelectedPhoto({
+        google_photo_id: `local_${Date.now()}_${Math.random()}`,
+        base_url: event.target?.result as string,
+        filename: file.name,
+        mime_type: file.type,
+        creation_time: new Date().toISOString(),
+        width: null,
+        height: null,
+      });
+    };
+    reader.readAsDataURL(file);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -85,11 +83,11 @@ export default function NewMemoryPage() {
     setLoading(true);
 
     try {
-      const memories = await apiClient.createMemory({
+      await apiClient.createMemory({
         title,
         description,
         memory_date: new Date(memoryDate).toISOString(),
-        photos: selectedPhotos,
+        photo: selectedPhoto || undefined,
         google_access_token: googleAuth.accessToken,
       });
 
@@ -195,10 +193,9 @@ export default function NewMemoryPage() {
               
               <label className="flex items-center gap-2 bg-surface-hover border border-border hover:border-accent/30 text-foreground px-4 py-2 rounded-lg cursor-pointer text-sm font-medium transition-colors">
                 <Upload className="w-4 h-4" />
-                Upload Files
+                Upload Photo
                 <input
                   type="file"
-                  multiple
                   accept="image/*"
                   onChange={handleFileUpload}
                   className="hidden"
@@ -218,24 +215,20 @@ export default function NewMemoryPage() {
               </p>
             )}
 
-            {selectedPhotos.length > 0 && (
-              <div className="grid grid-cols-3 gap-3">
-                {selectedPhotos.map((photo, index) => (
-                  <div key={index} className="relative aspect-square bg-surface-hover rounded-lg overflow-hidden group">
-                    <img
-                      src={getPhotoProxyUrl(photo.base_url, 300, 300)}
-                      alt={photo.filename}
-                      className="w-full h-full object-cover"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setSelectedPhotos(selectedPhotos.filter((_, i) => i !== index))}
-                      className="absolute top-2 right-2 bg-danger hover:bg-danger-hover text-white rounded-full w-6 h-6 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-xs"
-                    >
-                      ×
-                    </button>
-                  </div>
-                ))}
+            {selectedPhoto && (
+              <div className="relative aspect-square max-w-xs bg-surface-hover rounded-lg overflow-hidden group">
+                <img
+                  src={getPhotoProxyUrl(selectedPhoto.base_url, 300, 300)}
+                  alt={selectedPhoto.filename}
+                  className="w-full h-full object-cover"
+                />
+                <button
+                  type="button"
+                  onClick={() => setSelectedPhoto(null)}
+                  className="absolute top-2 right-2 bg-danger hover:bg-danger-hover text-white rounded-full w-6 h-6 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-xs"
+                >
+                  ×
+                </button>
               </div>
             )}
           </div>

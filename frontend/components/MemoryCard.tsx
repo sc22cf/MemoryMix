@@ -69,8 +69,8 @@ export default function MemoryCard({ memory, onClick, spotifyConnected }: Memory
   // "preview" = HTML5 Audio, "sdk" = Spotify Web Playback SDK
   const playbackModeRef = useRef<'preview' | 'sdk' | null>(null);
 
-  const photo = memory.photos?.[0];
-  const mapping = memory.mappings?.[0];
+  const photo = memory.photo;
+  const mapping = memory.mapping;
   const track = mapping?.track;
 
   // SDK-based playing status for this card

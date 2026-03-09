@@ -32,8 +32,8 @@ export default function MemoryDetailModal({
   const [searchFilter, setSearchFilter] = useState('');
   const modalRef = useRef<HTMLDivElement>(null);
 
-  const photo = memory.photos?.[0];
-  const mapping = memory.mappings?.[0];
+  const photo = memory.photo;
+  const mapping = memory.mapping;
   const track = mapping?.track;
 
   // Close on escape

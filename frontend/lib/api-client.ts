@@ -75,7 +75,7 @@ class ApiClient {
   }
 
   async syncFullHistory(maxPages: number = 10) {
-    const { data } = await this.client.post(`/lastfm/sync/full?max_pages=${maxPages}`);
+    const { data } = await this.client.post(`/lastfm/sync?pages=${maxPages}`);
     return data;
   }
 
@@ -99,11 +99,11 @@ class ApiClient {
     title: string;
     description?: string;
     memory_date: string;
-    photos: any[];
+    photo?: any;
     google_access_token?: string | null;
-  }): Promise<any[]> {
+  }) {
     const { data } = await this.client.post('/memories', memory);
-    return data; // Now returns an array of memories (one per photo)
+    return data;
   }
 
   async getMemories(skip: number = 0, limit: number = 20) {
@@ -128,7 +128,7 @@ class ApiClient {
 
   async getTrackSuggestions(memoryId: number, timeWindowHours: number = 3) {
     const { data } = await this.client.get(`/memories/${memoryId}/suggestions?time_window_hours=${timeWindowHours}`);
-    return data;
+    return data; // Returns TrackSuggestion[] directly
   }
 
   // Mapping endpoints
@@ -143,11 +143,6 @@ class ApiClient {
     return data;
   }
 
-  async getMapping(mappingId: number) {
-    const { data } = await this.client.get(`/mappings/${mappingId}`);
-    return data;
-  }
-
   async updateMapping(mappingId: number, updates: any) {
     const { data } = await this.client.put(`/mappings/${mappingId}`, updates);
     return data;
@@ -155,11 +150,6 @@ class ApiClient {
 
   async deleteMapping(mappingId: number) {
     const { data } = await this.client.delete(`/mappings/${mappingId}`);
-    return data;
-  }
-
-  async getMemoryMappings(memoryId: number) {
-    const { data } = await this.client.get(`/mappings/memory/${memoryId}`);
     return data;
   }
 

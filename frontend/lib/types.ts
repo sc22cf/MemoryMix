@@ -62,8 +62,8 @@ export interface Memory {
   memory_date: string;
   created_at: string;
   updated_at: string;
-  photos: Photo[];
-  mappings: TrackPhotoMapping[];
+  photo?: Photo;
+  mapping?: TrackPhotoMapping;
 }
 
 export interface TrackSuggestion {
@@ -75,12 +75,6 @@ export interface TrackSuggestion {
   played_at: string;
   confidence_score: number;
   time_difference_minutes: number;
-}
-
-export interface PhotoSuggestion {
-  photo_id: number;
-  photo: Photo;
-  suggested_tracks: TrackSuggestion[];
 }
 
 export interface PaginatedHistory {
