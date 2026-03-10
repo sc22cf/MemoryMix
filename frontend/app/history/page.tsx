@@ -11,7 +11,7 @@ import { format } from 'date-fns';
 import SpotifyPlayer from '@/components/SpotifyPlayer';
 
 export default function HistoryPage() {
-  const { user, loading } = useAuth();
+  const { user, loading, isTestMode } = useAuth();
   const router = useRouter();
   const [page, setPage] = useState(1);
   const [perPage] = useState(50);
@@ -65,7 +65,7 @@ export default function HistoryPage() {
   };
 
   const handlePlayTrack = async (track: any) => {
-    if (!user?.spotify_connected) return;
+    if (isTestMode || !user?.spotify_connected) return;
     setSearchingTrack(track.id);
     try {
       const result = await apiClient.searchSpotifyTrack(track.track_name, track.artist_name);
@@ -115,24 +115,26 @@ export default function HistoryPage() {
               <ArrowLeft className="w-4 h-4" />
               Dashboard
             </Link>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={handleSync}
-                disabled={syncing || syncingFull}
-                className="flex items-center gap-2 px-3 py-1.5 bg-accent hover:bg-accent-hover text-background rounded-lg disabled:opacity-50 text-sm font-medium"
-              >
-                <RefreshCw className={`w-3.5 h-3.5 ${syncing ? 'animate-spin' : ''}`} />
-                {syncing ? 'Syncing...' : 'Sync Recent'}
-              </button>
-              <button
-                onClick={handleFullSync}
-                disabled={syncing || syncingFull}
-                className="flex items-center gap-2 px-3 py-1.5 bg-surface border border-border hover:border-accent/40 text-foreground rounded-lg disabled:opacity-50 text-sm font-medium"
-              >
-                <RefreshCw className={`w-3.5 h-3.5 ${syncingFull ? 'animate-spin' : ''}`} />
-                {syncingFull ? 'Syncing...' : 'Full Sync'}
-              </button>
-            </div>
+            {!isTestMode && (
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleSync}
+                  disabled={syncing || syncingFull}
+                  className="flex items-center gap-2 px-3 py-1.5 bg-accent hover:bg-accent-hover text-background rounded-lg disabled:opacity-50 text-sm font-medium"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${syncing ? 'animate-spin' : ''}`} />
+                  {syncing ? 'Syncing...' : 'Sync Recent'}
+                </button>
+                <button
+                  onClick={handleFullSync}
+                  disabled={syncing || syncingFull}
+                  className="flex items-center gap-2 px-3 py-1.5 bg-surface border border-border hover:border-accent/40 text-foreground rounded-lg disabled:opacity-50 text-sm font-medium"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${syncingFull ? 'animate-spin' : ''}`} />
+                  {syncingFull ? 'Syncing...' : 'Full Sync'}
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </header>
@@ -189,7 +191,7 @@ export default function HistoryPage() {
                 className="grid grid-cols-12 gap-4 px-4 py-3 border-b border-border/50 last:border-b-0 hover:bg-surface-hover items-center transition-colors"
               >
                 <div className="col-span-1 text-xs text-muted/50 tabular-nums flex items-center gap-1">
-                  {user?.spotify_connected ? (
+                  {!isTestMode && user?.spotify_connected ? (
                     <button
                       onClick={() => handlePlayTrack(track)}
                       disabled={searchingTrack === track.id}
@@ -258,7 +260,7 @@ export default function HistoryPage() {
                 ? 'Try a different search query.'
                 : 'Sync your Last.fm history to see your scrobbles here.'}
             </p>
-            {!searchQuery && (
+            {!searchQuery && !isTestMode && (
               <button
                 onClick={handleSync}
                 className="inline-flex items-center gap-2 bg-accent hover:bg-accent-hover text-background px-5 py-2.5 rounded-lg font-medium text-sm"
@@ -303,7 +305,7 @@ export default function HistoryPage() {
       </div>
 
       {/* Spotify Player — sticky bottom */}
-      {user?.spotify_connected && (
+      {!isTestMode && user?.spotify_connected && (
         <div className="fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-surface/95 backdrop-blur-md px-4 py-3">
           <div className="container mx-auto">
             <SpotifyPlayer spotifyUri={playingUri} />

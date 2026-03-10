@@ -19,6 +19,7 @@ class UserResponse(UserBase):
     profile_image_url: Optional[str] = None
     spotify_id: Optional[str] = None
     spotify_connected: bool = False
+    is_test_user: bool = False
     created_at: datetime
     
     class Config:
@@ -92,7 +93,7 @@ class PhotoResponse(PhotoBase):
 # Track Photo Mapping Schemas
 class TrackPhotoMappingBase(BaseModel):
     photo_id: int
-    track_id: int
+    track_id: Optional[int] = None
     is_auto_suggested: bool = False
     confidence_score: Optional[int] = None
 
@@ -107,7 +108,7 @@ class TrackPhotoMappingUpdate(BaseModel):
 
 
 class MoodCandidate(BaseModel):
-    track_id: int
+    track_id: Optional[int] = None
     track_name: str
     artist_name: str
     album_name: Optional[str] = None
@@ -211,6 +212,21 @@ class SpotifySearchResult(BaseModel):
     artist: Optional[str] = None
     album: Optional[str] = None
     image: Optional[str] = None
+
+
+# ─── Testing Mode ──────────────────────────────────────────────
+
+class TestSongPreview(BaseModel):
+    rowid: Optional[int] = None
+    track_name: str
+    artist_name: str
+    genre: Optional[str] = None
+    spotify_id: Optional[str] = None
+
+
+class TestLoginRequest(BaseModel):
+    mode: str = "random"          # "hardcoded" | "random"
+    rowids: Optional[List[int]] = None
 
 
 

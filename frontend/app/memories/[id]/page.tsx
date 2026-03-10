@@ -14,7 +14,7 @@ import SpotifyPlayer from '@/components/SpotifyPlayer';
 export default function MemoryDetailPage() {
   const params = useParams();
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, isTestMode } = useAuth();
   const queryClient = useQueryClient();
   const memoryId = parseInt(params.id as string);
   
@@ -255,7 +255,7 @@ export default function MemoryDetailPage() {
                 {memory.mapping ? (
                   <div
                     className="bg-surface-hover border border-border/50 rounded-lg p-2.5 relative group/mapping cursor-pointer hover:border-accent/30 transition-colors"
-                    onClick={() => memory.mapping?.track && playTrack(memory.mapping.track)}
+                    onClick={() => !isTestMode && memory.mapping?.track && playTrack(memory.mapping.track)}
                   >
                     <div className="flex items-center gap-2">
                       <Music className="w-3.5 h-3.5 text-accent flex-shrink-0" />
@@ -313,7 +313,7 @@ export default function MemoryDetailPage() {
       </div>
 
       {/* Spotify Player — fixed to bottom */}
-      {user?.spotify_connected && (
+      {!isTestMode && user?.spotify_connected && (
         <div className="fixed bottom-0 left-0 right-0 z-50 p-4 bg-background/80 backdrop-blur-lg border-t border-border">
           <div className="container mx-auto max-w-4xl">
             <SpotifyPlayer

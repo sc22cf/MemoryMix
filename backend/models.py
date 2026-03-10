@@ -19,6 +19,7 @@ class User(Base):
     spotify_access_token = Column(Text, nullable=True)
     spotify_refresh_token = Column(Text, nullable=True)
     spotify_token_expires_at = Column(DateTime, nullable=True)
+    is_test_user = Column(Boolean, default=False)
     
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

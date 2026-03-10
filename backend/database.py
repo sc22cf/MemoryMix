@@ -45,6 +45,11 @@ async def _run_migrations(conn):
         await conn.execute(text("SELECT mood_candidates FROM track_photo_mappings LIMIT 1"))
     except Exception:
         await conn.execute(text("ALTER TABLE track_photo_mappings ADD COLUMN mood_candidates JSON"))
+    # Add is_test_user to users table if it doesn't exist
+    try:
+        await conn.execute(text("SELECT is_test_user FROM users LIMIT 1"))
+    except Exception:
+        await conn.execute(text("ALTER TABLE users ADD COLUMN is_test_user BOOLEAN DEFAULT 0"))
 
 
 async def init_db():
