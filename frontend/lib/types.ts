@@ -41,6 +41,21 @@ export interface Photo {
   created_at: string;
 }
 
+export interface MoodCandidate {
+  track_id: number;
+  track_name: string;
+  artist_name: string;
+  album_name?: string;
+  album_image_url?: string;
+  spotify_uri?: string;
+  confidence_score: number;   // 0-100
+  mood_text?: string;
+  genre?: string;
+  seed_tags?: string[];
+  join_method?: string;
+  similarity?: number;
+}
+
 export interface TrackPhotoMapping {
   id: number;
   memory_id: number;
@@ -48,6 +63,8 @@ export interface TrackPhotoMapping {
   track_id: number;
   is_auto_suggested: boolean;
   confidence_score?: number;
+  mood_text?: string;
+  mood_candidates?: MoodCandidate[];
   created_at: string;
   updated_at: string;
   track?: ListeningHistory;
@@ -75,6 +92,8 @@ export interface TrackSuggestion {
   played_at: string;
   confidence_score: number;
   time_difference_minutes: number;
+  time_difference_seconds: number;
+  played_before_photo: boolean;
 }
 
 export interface PaginatedHistory {

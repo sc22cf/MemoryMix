@@ -195,7 +195,7 @@ export default function DashboardPage() {
           <div className="flex justify-between items-center mb-5">
             <h2 className="text-xl font-semibold flex items-center gap-2">
               <Camera className="w-5 h-5 text-accent" />
-              Your Memories
+              Your Memory Mixes
             </h2>
           </div>
 

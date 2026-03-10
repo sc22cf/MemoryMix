@@ -35,6 +35,16 @@ async def _run_migrations(conn):
         await conn.execute(text("SELECT local_path FROM photos LIMIT 1"))
     except Exception:
         await conn.execute(text("ALTER TABLE photos ADD COLUMN local_path VARCHAR"))
+    # Add mood_text to track_photo_mappings table if it doesn't exist
+    try:
+        await conn.execute(text("SELECT mood_text FROM track_photo_mappings LIMIT 1"))
+    except Exception:
+        await conn.execute(text("ALTER TABLE track_photo_mappings ADD COLUMN mood_text VARCHAR"))
+    # Add mood_candidates to track_photo_mappings table if it doesn't exist
+    try:
+        await conn.execute(text("SELECT mood_candidates FROM track_photo_mappings LIMIT 1"))
+    except Exception:
+        await conn.execute(text("ALTER TABLE track_photo_mappings ADD COLUMN mood_candidates JSON"))
 
 
 async def init_db():

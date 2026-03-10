@@ -148,7 +148,7 @@ class LastfmService:
                     )
                 )
 
-                if existing.scalar_one_or_none():
+                if existing.scalars().first():
                     continue
 
                 duration_ms = int(item.get("duration", 0)) * 1000 if item.get("duration") else 0

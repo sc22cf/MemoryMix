@@ -9,7 +9,7 @@ import os
 import base64
 import uuid
 import mimetypes
-# import logging
+import logging
 
 from database import get_db
 from models import User, Memory, Photo, TrackPhotoMapping, ListeningHistory
@@ -27,12 +27,12 @@ from config import get_settings
 settings = get_settings()
 
 # Configure logging
-# logging.basicConfig(
-#     level=logging.INFO,
-#     format='%(asctime)s - %(levelname)s - %(message)s'
-# )
-# logger = logging.getLogger(__name__)
-# logger.setLevel(logging.INFO)
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
 
 # Base directory for locally stored photos
 UPLOAD_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "uploads", "photos")
@@ -160,8 +160,10 @@ async def create_memory(
 
         # ── Auto-match: resolve → join → rank pipeline ──────────
         matched_track_id = None
+        match_mood_text = None
         match_strategy = "none"
         match_score = None
+        mood_candidates_data = []
 
         memory_date_only = memory.memory_date.date() if hasattr(memory.memory_date, 'date') else memory.memory_date
         date_str = str(memory_date_only)
@@ -178,22 +180,20 @@ async def create_memory(
         candidate_tracks = tracks_query.scalars().all()
 
         if not candidate_tracks:
-            # logger.info(
-            #     f"📭 No listening history for user {user.id} on {memory_date_only}"
-            # )
-            pass
+            logger.info(
+                f"📭 No listening history for user {user.id} on {memory_date_only}"
+            )
         else:
-            # logger.info(f"🔍 Found {len(candidate_tracks)} tracks on {memory_date_only}")
+            logger.info(f"🔍 Found {len(candidate_tracks)} tracks on {memory_date_only}")
 
             # ── Step 1: Resolve missing Spotify IDs ──
             try:
                 resolve_stats = await _resolver.resolve_and_backfill(
                     db, user, date_str
                 )
-                # logger.info(f"🔗 Spotify resolution: {resolve_stats}")
+                logger.info(f"🔗 Spotify resolution: {resolve_stats}")
             except Exception as e:
-                # logger.warning(f"⚠️ Spotify resolution error (continuing): {e}")
-                pass
+                logger.warning(f"⚠️ Spotify resolution error (continuing): {e}")
 
             # Re-query to pick up back-filled spotify_uri values
             tracks_query = await db.execute(
@@ -214,7 +214,35 @@ async def create_memory(
 
             if track_tuples:
                 joined_tracks, join_stats = _joiner.join_day(track_tuples)
-                # logger.info(f"📊 Join: {join_stats}")
+
+                # Log every single track in one table
+                lines = [
+                    f"\n{'='*70}",
+                    f"📊 JOIN RESULTS — {len(joined_tracks)} tracks on {memory_date_only}",
+                    f"{'─'*70}",
+                ]
+                for i, jt in enumerate(joined_tracks, 1):
+                    if jt.mood:
+                        lines.append(
+                            f"  {i:>2}. ✅  '{jt.track_name}' — {jt.artist_name}"
+                            f"\n         → matched '{jt.mood.track}' by {jt.mood.artist}"
+                            f"  [{jt.join_method}]"
+                        )
+                    else:
+                        lines.append(
+                            f"  {i:>2}. ❌  '{jt.track_name}' — {jt.artist_name}"
+                            f"  (uri: {jt.spotify_uri or 'none'})"
+                        )
+                lines.append(
+                    f"{'─'*70}\n"
+                    f"  Matched: {join_stats.by_spotify_id} by ID + "
+                    f"{join_stats.by_soft_match} by name = "
+                    f"{join_stats.by_spotify_id + join_stats.by_soft_match} / "
+                    f"{join_stats.total}  |  "
+                    f"Unmatched: {join_stats.unmatched}"
+                    f"\n{'='*70}"
+                )
+                print("\n".join(lines), flush=True)
 
                 # ── Step 3: Rank matched tracks by embedding similarity ──
                 matched_ids = [
@@ -230,21 +258,63 @@ async def create_memory(
                 if matched_ids and description and description.strip():
                     try:
                         mood_result = _mood_matcher.match(
-                            description, matched_ids, top_n=1
+                            description, matched_ids, top_n=len(matched_ids)
                         )
                         if mood_result and mood_result.ranked:
+                            logger.info(
+                                f"\n{'='*60}\n"
+                                f"🎯 MOOD MATCHING for memory '{memory.title}'\n"
+                                f"   Description: \"{description}\"\n"
+                                f"   Candidates in mood DB: {len(mood_result.ranked)}/{len(candidate_tracks)} tracks\n"
+                                f"   Elapsed: {mood_result.elapsed_ms:.0f}ms\n"
+                                f"{'─'*60}"
+                            )
+                            for i, sm in enumerate(mood_result.ranked):
+                                jt = mood_id_to_jt.get(sm.spotify_id)
+                                join_method = jt.join_method if jt else '?'
+                                marker = '  ★' if i == 0 else ''
+                                logger.info(
+                                    f"   {i+1:>3}. {sm.similarity*100:5.1f}%  "
+                                    f"'{sm.track}' — {sm.artist}  "
+                                    f"[{join_method}]{marker}"
+                                )
+                            logger.info(f"{'='*60}")
+
                             best = mood_result.ranked[0]
                             jt = mood_id_to_jt.get(best.spotify_id)
                             if jt:
                                 matched_track_id = jt.listening_history_id
+                                match_mood_text = best.mood_text
                                 match_strategy = f"mood+{jt.join_method}"
                                 match_score = best.similarity
-                                # logger.info(
-                                #     f"🎵 Best match: '{best.track}' by {best.artist} "
-                                #     f"(sim={match_score:.4f}, join={jt.join_method})"
-                                # )
+
+                            # Build top-3 mood candidates for display
+                            mood_candidates_data = []
+                            for sm in mood_result.ranked[:3]:
+                                cjt = mood_id_to_jt.get(sm.spotify_id)
+                                if not cjt:
+                                    continue
+                                # Find the original ListeningHistory for album art / URI
+                                lh = next(
+                                    (t for t in candidate_tracks if t.id == cjt.listening_history_id),
+                                    None,
+                                )
+                                mood_candidates_data.append({
+                                    "track_id": cjt.listening_history_id,
+                                    "track_name": cjt.track_name,
+                                    "artist_name": cjt.artist_name,
+                                    "album_name": lh.album_name if lh else None,
+                                    "album_image_url": lh.album_image_url if lh else None,
+                                    "spotify_uri": lh.spotify_uri if lh else cjt.spotify_uri,
+                                    "confidence_score": int(sm.similarity * 100),
+                                    "mood_text": sm.mood_text,
+                                    "genre": sm.genre,
+                                    "seed_tags": sm.seed_tags,
+                                    "join_method": cjt.join_method,
+                                    "similarity": round(sm.similarity, 4),
+                                })
                     except Exception as e:
-                        # logger.warning(f"⚠️ Embedding ranking failed: {e}")
+                        logger.warning(f"⚠️ Embedding ranking failed: {e}")
                         pass
 
                 # If embedding ranking found nothing, pick any joined track
@@ -252,6 +322,7 @@ async def create_memory(
                     for jt in joined_tracks:
                         if jt.mood:
                             matched_track_id = jt.listening_history_id
+                            match_mood_text = jt.mood.mood_text
                             match_strategy = f"join+{jt.join_method}"
                             match_score = jt.confidence
                             # logger.info(
@@ -288,6 +359,8 @@ async def create_memory(
                 track_id=matched_track_id,
                 is_auto_suggested=True,
                 confidence_score=int((match_score or 0) * 100),
+                mood_text=match_mood_text,
+                mood_candidates=mood_candidates_data if mood_candidates_data else None,
             )
             db.add(mapping)
             await db.flush()

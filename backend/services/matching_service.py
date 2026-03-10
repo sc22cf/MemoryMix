@@ -79,7 +79,9 @@ class MatchingService:
                     'album_image_url': track.album_image_url,
                     'played_at': track.played_at,
                     'confidence_score': confidence_score,
-                    'time_difference_minutes': time_diff_minutes
+                    'time_difference_minutes': time_diff_minutes,
+                    'time_difference_seconds': abs(int((photo_time - track.played_at).total_seconds())),
+                    'played_before_photo': track.played_at < photo_time,
                 })
         
         # Sort by confidence score (highest first)

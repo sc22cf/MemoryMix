@@ -98,6 +98,8 @@ class TrackPhotoMapping(Base):
     track_id = Column(Integer, ForeignKey("listening_history.id"))
     is_auto_suggested = Column(Boolean, default=False)
     confidence_score = Column(Integer, nullable=True)  # For auto-suggestions
+    mood_text = Column(String, nullable=True)  # Mood description used for auto-match
+    mood_candidates = Column(JSON, nullable=True)  # Top-3 mood match candidates
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     

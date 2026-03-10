@@ -106,9 +106,26 @@ class TrackPhotoMappingUpdate(BaseModel):
     is_auto_suggested: Optional[bool] = None
 
 
+class MoodCandidate(BaseModel):
+    track_id: int
+    track_name: str
+    artist_name: str
+    album_name: Optional[str] = None
+    album_image_url: Optional[str] = None
+    spotify_uri: Optional[str] = None
+    confidence_score: int          # 0-100
+    mood_text: Optional[str] = None
+    genre: Optional[str] = None
+    seed_tags: Optional[List[str]] = None
+    join_method: Optional[str] = None
+    similarity: Optional[float] = None
+
+
 class TrackPhotoMappingResponse(TrackPhotoMappingBase):
     id: int
     memory_id: int
+    mood_text: Optional[str] = None
+    mood_candidates: Optional[List[MoodCandidate]] = None
     created_at: datetime
     updated_at: datetime
     track: Optional[ListeningHistoryResponse] = None
@@ -170,6 +187,8 @@ class TrackSuggestion(BaseModel):
     played_at: datetime
     confidence_score: int
     time_difference_minutes: int
+    time_difference_seconds: int
+    played_before_photo: bool
 
 
 

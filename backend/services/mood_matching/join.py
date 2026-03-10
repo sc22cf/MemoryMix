@@ -3,7 +3,8 @@ join.py — Memory-day join: match a day's scrobbles to the mood dataset.
 
 Strategy:
   1. Spotify ID join (exact, fast)
-  2. Soft-match fallback (normalized title+artist, uses rapidfuzz)
+  2. Canonical exact match: normalize(track) + ' - ' + normalize(artist)
+  3. Levenshtein distance ≤ 2 on artist-narrowed candidates
 
 Usage:
     from services.mood_matching.join import MemoryJoiner
@@ -20,9 +21,8 @@ from __future__ import annotations
 import json
 import sqlite3
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
 
 from services.mood_matching.normalize import normalize
 
@@ -30,7 +30,7 @@ from services.mood_matching.normalize import normalize
 # Config
 # ---------------------------------------------------------------------------
 MOOD_DB_PATH = Path(__file__).resolve().parents[1] / "mood_songs.db"
-SOFT_MATCH_THRESHOLD = 80  # rapidfuzz score 0-100
+LEVENSHTEIN_THRESHOLD = 2  # max edit distance for canonical fuzzy match
 
 
 # ---------------------------------------------------------------------------
@@ -88,15 +88,22 @@ class JoinedTrack:
 class JoinStats:
     total: int = 0
     by_spotify_id: int = 0
-    by_soft_match: int = 0
+    by_canonical_exact: int = 0
+    by_canonical_fuzzy: int = 0
     unmatched: int = 0
     elapsed_ms: float = 0
+
+    @property
+    def by_soft_match(self) -> int:
+        """Combined canonical match count (for backward-compatible callers)."""
+        return self.by_canonical_exact + self.by_canonical_fuzzy
 
     def __str__(self) -> str:
         return (
             f"Total: {self.total} | "
             f"Spotify ID: {self.by_spotify_id} | "
-            f"Soft match: {self.by_soft_match} | "
+            f"Canonical exact: {self.by_canonical_exact} | "
+            f"Canonical fuzzy: {self.by_canonical_fuzzy} | "
             f"Unmatched: {self.unmatched} | "
             f"Time: {self.elapsed_ms:.0f}ms"
         )
@@ -116,30 +123,40 @@ class MemoryJoiner:
         return sqlite3.connect(self._db_path)
 
     def _ensure_norm_columns(self) -> None:
-        """Add normalised name columns + index to mood_songs if missing."""
+        """Add normalised name columns + canonical_name index to mood_songs if missing."""
         conn = self._get_conn()
         cur = conn.cursor()
 
-        # Check if columns exist
         cols = {row[1] for row in cur.execute("PRAGMA table_info(mood_songs)")}
-        if "title_norm" not in cols:
-            print("📊 Adding normalized columns to mood_songs for soft matching...")
+        needs_title = "title_norm" not in cols
+        needs_canonical = "canonical_name" not in cols
+
+        if needs_title:
+            print("📊 Adding title_norm / artist_norm columns to mood_songs...")
             cur.execute("ALTER TABLE mood_songs ADD COLUMN title_norm TEXT")
             cur.execute("ALTER TABLE mood_songs ADD COLUMN artist_norm TEXT")
 
-            # Populate — we do this in Python since SQLite doesn't have our normalize()
+        if needs_canonical:
+            print("📊 Adding canonical_name column to mood_songs...")
+            cur.execute("ALTER TABLE mood_songs ADD COLUMN canonical_name TEXT")
+
+        if needs_title or needs_canonical:
+            print("📊 Populating normalized columns (this may take a moment)...")
             cur.execute("SELECT rowid, track, artist FROM mood_songs")
             updates = []
             for rowid, track, artist in cur.fetchall():
-                updates.append((normalize(track), normalize(artist), rowid))
+                t_n = normalize(track)
+                a_n = normalize(artist)
+                updates.append((t_n, a_n, f"{t_n} - {a_n}", rowid))
 
             cur.executemany(
-                "UPDATE mood_songs SET title_norm = ?, artist_norm = ? WHERE rowid = ?",
+                "UPDATE mood_songs SET title_norm = ?, artist_norm = ?, canonical_name = ? WHERE rowid = ?",
                 updates,
             )
             cur.execute("CREATE INDEX IF NOT EXISTS idx_mood_norm ON mood_songs(title_norm, artist_norm)")
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_mood_canonical ON mood_songs(canonical_name)")
             conn.commit()
-            print(f"   ✅ Normalized {len(updates)} rows")
+            print(f"   ✅ Populated {len(updates)} rows")
 
         conn.close()
 
@@ -168,25 +185,32 @@ class MemoryJoiner:
             mood_text=row[8],
         )
 
-    # ── Soft match by normalized title + artist ──
-    def _lookup_by_name(self, track_name: str, artist_name: str) -> tuple[MoodInfo | None, float]:
-        """Try to find a mood_songs row by normalized name matching.
+    # ── Canonical name match (exact then Levenshtein ≤ 2) ──
+    def _lookup_by_name(
+        self, track_name: str, artist_name: str
+    ) -> tuple[MoodInfo | None, float, str]:
+        """Find a mood_songs row by canonical artist+track string.
 
-        Returns (MoodInfo, confidence) or (None, 0).
+        Pipeline:
+          1. Exact canonical match:  normalize(track) + ' - ' + normalize(artist)
+          2. Levenshtein distance ≤ 2 on artist-narrowed candidates
+
+        Returns (MoodInfo, confidence, join_method) or (None, 0.0, 'unmatched').
         """
         t_norm = normalize(track_name)
         a_norm = normalize(artist_name)
+        candidate_canonical = f"{t_norm} - {a_norm}"
 
         conn = self._get_conn()
 
-        # Strategy 1: exact normalized match
+        # ── Step 1: Exact canonical match ──
         cur = conn.execute(
             """SELECT spotify_id, track, artist, genre, seed_tags,
                       valence, arousal, dominance, mood_text
                FROM mood_songs
-               WHERE title_norm = ? AND artist_norm = ?
+               WHERE canonical_name = ?
                LIMIT 1""",
-            (t_norm, a_norm),
+            (candidate_canonical,),
         )
         row = cur.fetchone()
         if row:
@@ -198,71 +222,53 @@ class MemoryJoiner:
                     valence=row[5], arousal=row[6], dominance=row[7], mood_text=row[8],
                 ),
                 1.0,
+                "canonical_exact",
             )
 
-        # Strategy 2: rapidfuzz against tracks by same artist
+        # ── Step 2: Levenshtein ≤ 2 on artist-narrowed candidates ──
         try:
-            from rapidfuzz import fuzz
+            from rapidfuzz.distance import Levenshtein
         except ImportError:
-            # Fallback: simple contains check
-            cur2 = conn.execute(
-                """SELECT spotify_id, track, artist, genre, seed_tags,
-                          valence, arousal, dominance, mood_text, title_norm
-                   FROM mood_songs
-                   WHERE artist_norm = ?""",
-                (a_norm,),
-            )
-            for row in cur2.fetchall():
-                db_title_norm = row[9]
-                if t_norm in db_title_norm or db_title_norm in t_norm:
-                    conn.close()
-                    return (
-                        MoodInfo(
-                            spotify_id=row[0], track=row[1], artist=row[2],
-                            genre=row[3], seed_tags=json.loads(row[4]) if row[4] else [],
-                            valence=row[5], arousal=row[6], dominance=row[7], mood_text=row[8],
-                        ),
-                        0.85,
-                    )
             conn.close()
-            return None, 0.0
+            return None, 0.0, "unmatched"
 
-        # Use rapidfuzz: fetch all tracks by same artist
+        # Narrow by exact normalized artist first
         cur2 = conn.execute(
             """SELECT spotify_id, track, artist, genre, seed_tags,
-                      valence, arousal, dominance, mood_text, title_norm
+                      valence, arousal, dominance, mood_text, canonical_name
                FROM mood_songs
                WHERE artist_norm = ?""",
             (a_norm,),
         )
         candidates = cur2.fetchall()
 
-        if not candidates:
-            # Try fuzzy artist match too
+        if not candidates and a_norm:
+            # Fall back to prefix match on first word of artist
+            artist_prefix = a_norm.split()[0]
             cur3 = conn.execute(
                 """SELECT spotify_id, track, artist, genre, seed_tags,
-                          valence, arousal, dominance, mood_text, title_norm, artist_norm
+                          valence, arousal, dominance, mood_text, canonical_name
                    FROM mood_songs
                    WHERE artist_norm LIKE ?
-                   LIMIT 200""",
-                (f"%{a_norm.split()[0] if a_norm else ''}%",),
+                   LIMIT 500""",
+                (f"{artist_prefix}%",),
             )
-            candidates = [(r[0], r[1], r[2], r[3], r[4], r[5], r[6], r[7], r[8], r[9]) 
-                          for r in cur3.fetchall()
-                          if fuzz.token_set_ratio(a_norm, r[10]) >= SOFT_MATCH_THRESHOLD]
+            candidates = cur3.fetchall()
 
         conn.close()
 
-        best_score = 0.0
+        best_dist = 3  # above threshold
         best_row = None
         for row in candidates:
-            db_title_norm = row[9]
-            score = fuzz.token_set_ratio(t_norm, db_title_norm)
-            if score > best_score:
-                best_score = score
+            db_canonical = row[9]
+            dist = Levenshtein.distance(candidate_canonical, db_canonical)
+            if dist < best_dist:
+                best_dist = dist
                 best_row = row
 
-        if best_row and best_score >= SOFT_MATCH_THRESHOLD:
+        if best_row is not None and best_dist <= 2:
+            # confidence: 1.0 → dist=0 (shouldn't reach here), 0.9 → dist=1, 0.8 → dist=2
+            confidence = 1.0 - (best_dist * 0.1)
             return (
                 MoodInfo(
                     spotify_id=best_row[0], track=best_row[1], artist=best_row[2],
@@ -271,10 +277,11 @@ class MemoryJoiner:
                     valence=best_row[5], arousal=best_row[6], dominance=best_row[7],
                     mood_text=best_row[8],
                 ),
-                best_score / 100.0,
+                confidence,
+                "canonical_fuzzy",
             )
 
-        return None, 0.0
+        return None, 0.0, "unmatched"
 
     # ── Main join ──
     def join_day(
@@ -319,13 +326,16 @@ class MemoryJoiner:
                     results.append(joined)
                     continue
 
-            # Strategy 2: soft match by name
-            mood, confidence = self._lookup_by_name(track_name, artist_name)
+            # Strategy 2: canonical name match (exact → Levenshtein ≤ 2)
+            mood, confidence, method = self._lookup_by_name(track_name, artist_name)
             if mood:
                 joined.mood = mood
-                joined.join_method = "soft_match"
+                joined.join_method = method
                 joined.confidence = confidence
-                stats.by_soft_match += 1
+                if method == "canonical_exact":
+                    stats.by_canonical_exact += 1
+                else:
+                    stats.by_canonical_fuzzy += 1
             else:
                 stats.unmatched += 1
 

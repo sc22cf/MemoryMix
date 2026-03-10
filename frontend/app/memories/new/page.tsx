@@ -4,9 +4,11 @@ import { useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { useGoogleAuth } from '@/hooks/useGoogleAuth';
+import { useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api-client';
-import { ArrowLeft, Camera, Calendar, Upload, Image as ImageIcon } from 'lucide-react';
+import { ArrowLeft, Camera, Upload, Image as ImageIcon, Clock } from 'lucide-react';
 import Link from 'next/link';
+import { format } from 'date-fns';
 import { useGooglePhotosPicker, PickerStatusOverlay } from '@/components/GooglePhotosPicker';
 import { getPhotoProxyUrl } from '@/lib/photo-utils';
 
@@ -21,15 +23,23 @@ export default function NewMemoryPage() {
   const { user } = useAuth();
   const router = useRouter();
   const googleAuth = useGoogleAuth();
+  const queryClient = useQueryClient();
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [memoryDate, setMemoryDate] = useState('');
   const [selectedPhoto, setSelectedPhoto] = useState<any | null>(null);
   const [loading, setLoading] = useState(false);
   const [pickerError, setPickerError] = useState<string | null>(null);
+  // Photo timestamp tracking
+  const [photoTimeSource, setPhotoTimeSource] = useState<'none' | 'exif' | 'google' | 'manual'>('none');
+  const [manualPhotoTime, setManualPhotoTime] = useState('');
 
   const handlePhotosPicked = useCallback((photos: any[]) => {
-    if (photos.length > 0) setSelectedPhoto(photos[0]);
+    if (photos.length > 0) {
+      const photo = photos[0];
+      setSelectedPhoto(photo);
+      setPhotoTimeSource('google');
+      setManualPhotoTime('');
+    }
   }, []);
 
   const handlePickerError = useCallback((msg: string) => {
@@ -52,11 +62,25 @@ export default function NewMemoryPage() {
     picker.startPicker();
   };
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
     const file = files[0];
+
+    // Try to extract EXIF capture time from the image
+    let exifTime: string | null = null;
+    try {
+      const { default: exifr } = await import('exifr');
+      const exif = await exifr.parse(file, ['DateTimeOriginal', 'CreateDate']);
+      const dt = exif?.DateTimeOriginal ?? exif?.CreateDate;
+      if (dt instanceof Date && !isNaN(dt.getTime())) {
+        exifTime = dt.toISOString();
+      }
+    } catch {
+      // EXIF parsing unavailable or failed — will prompt manual input
+    }
+
     const reader = new FileReader();
     reader.onload = (event) => {
       setSelectedPhoto({
@@ -64,19 +88,52 @@ export default function NewMemoryPage() {
         base_url: event.target?.result as string,
         filename: file.name,
         mime_type: file.type,
-        creation_time: new Date().toISOString(),
+        creation_time: exifTime ?? new Date().toISOString(),
         width: null,
         height: null,
       });
+      if (exifTime) {
+        setPhotoTimeSource('exif');
+        setManualPhotoTime('');
+      } else {
+        setPhotoTimeSource('none');
+        setManualPhotoTime('');
+      }
     };
     reader.readAsDataURL(file);
+  };
+
+  const applyManualPhotoTime = (timeValue: string) => {
+    if (!timeValue) return;
+    const isoTime = new Date(timeValue).toISOString();
+    setSelectedPhoto((prev: any) => prev ? { ...prev, creation_time: isoTime } : prev);
+    setPhotoTimeSource('manual');
+    setManualPhotoTime(timeValue);
+  };
+
+  const formatPhotoTime = (isoString: string) => {
+    try { return format(new Date(isoString), 'MMM d, yyyy h:mm a'); } catch { return isoString; }
+  };
+
+  const isoToLocalInput = (isoString: string) => {
+    try { return new Date(isoString).toISOString().slice(0, 16); } catch { return ''; }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!title || !memoryDate) {
-      alert('Please fill in all required fields');
+    if (!title) {
+      alert('Please fill in a title');
+      return;
+    }
+
+    if (!selectedPhoto) {
+      alert('Please add a photo to create a memory.');
+      return;
+    }
+
+    if (photoTimeSource === 'none') {
+      alert('Please enter when the photo was taken so we can match songs accurately.');
       return;
     }
 
@@ -86,11 +143,12 @@ export default function NewMemoryPage() {
       await apiClient.createMemory({
         title,
         description,
-        memory_date: new Date(memoryDate).toISOString(),
-        photo: selectedPhoto || undefined,
+        memory_date: selectedPhoto.creation_time,
+        photo: selectedPhoto,
         google_access_token: googleAuth.accessToken,
       });
 
+      await queryClient.invalidateQueries({ queryKey: ['memories'] });
       // Navigate to dashboard to see all created memories
       router.push('/dashboard');
     } catch (error) {
@@ -133,26 +191,10 @@ export default function NewMemoryPage() {
             />
           </div>
 
-          {/* Date */}
-          <div>
-            <label htmlFor="date" className="block text-sm font-medium text-muted mb-2">
-              <Calendar className="w-3.5 h-3.5 inline mr-1.5" />
-              Memory Date <span className="text-danger">*</span>
-            </label>
-            <input
-              type="date"
-              id="date"
-              value={memoryDate}
-              onChange={(e) => setMemoryDate(e.target.value)}
-              className="w-full px-4 py-2.5 bg-background border border-border rounded-lg text-foreground focus:border-accent/50 focus:ring-1 focus:ring-accent/30 transition-colors [color-scheme:dark]"
-              required
-            />
-          </div>
-
           {/* Description */}
           <div>
             <label htmlFor="description" className="block text-sm font-medium text-muted mb-2">
-              Description
+              Mood Description
             </label>
             <textarea
               id="description"
@@ -216,19 +258,63 @@ export default function NewMemoryPage() {
             )}
 
             {selectedPhoto && (
-              <div className="relative aspect-square max-w-xs bg-surface-hover rounded-lg overflow-hidden group">
-                <img
-                  src={getPhotoProxyUrl(selectedPhoto.base_url, 300, 300)}
-                  alt={selectedPhoto.filename}
-                  className="w-full h-full object-cover"
-                />
-                <button
-                  type="button"
-                  onClick={() => setSelectedPhoto(null)}
-                  className="absolute top-2 right-2 bg-danger hover:bg-danger-hover text-white rounded-full w-6 h-6 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-xs"
-                >
-                  ×
-                </button>
+              <div className="space-y-3">
+                {/* Thumbnail */}
+                <div className="relative aspect-square max-w-xs bg-surface-hover rounded-lg overflow-hidden group">
+                  <img
+                    src={getPhotoProxyUrl(selectedPhoto.base_url, 300, 300)}
+                    alt={selectedPhoto.filename}
+                    className="w-full h-full object-cover"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedPhoto(null);
+                      setPhotoTimeSource('none');
+                      setManualPhotoTime('');
+                    }}
+                    className="absolute top-2 right-2 bg-danger hover:bg-danger-hover text-white rounded-full w-6 h-6 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-xs"
+                  >
+                    ×
+                  </button>
+                </div>
+
+                {/* Photo time detection */}
+                {photoTimeSource === 'none' ? (
+                  <div className="max-w-xs bg-surface-hover border border-border rounded-lg p-3 space-y-2">
+                    <div className="flex items-center gap-1.5 text-xs text-muted/70">
+                      <Clock className="w-3 h-3" />
+                      <span>No photo time found — when was this taken?</span>
+                    </div>
+                    <input
+                      type="datetime-local"
+                      value={manualPhotoTime}
+                      onChange={(e) => applyManualPhotoTime(e.target.value)}
+                      className="w-full px-3 py-2 bg-background border border-border rounded-lg text-foreground text-xs focus:border-accent/50 focus:ring-1 focus:ring-accent/30 transition-colors [color-scheme:dark]"
+                    />
+                    <p className="text-[11px] text-muted/50">Helps match songs played at the same time</p>
+                  </div>
+                ) : (
+                  <div className="max-w-xs flex items-center gap-2 text-xs text-muted/70 bg-surface-hover border border-border/50 rounded-lg px-3 py-2">
+                    <Clock className="w-3 h-3 text-accent flex-shrink-0" />
+                    <span className="flex-1 truncate">
+                      <span className="text-foreground/80">{formatPhotoTime(selectedPhoto.creation_time)}</span>
+                      {photoTimeSource === 'exif' && <span className="ml-1.5 text-accent/60">(EXIF)</span>}
+                      {photoTimeSource === 'google' && <span className="ml-1.5 text-accent/60">(Google Photos)</span>}
+                      {photoTimeSource === 'manual' && <span className="ml-1.5 text-accent/60">(manual)</span>}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setManualPhotoTime(isoToLocalInput(selectedPhoto.creation_time));
+                        setPhotoTimeSource('none');
+                      }}
+                      className="text-muted/50 hover:text-muted text-[11px] flex-shrink-0"
+                    >
+                      Edit
+                    </button>
+                  </div>
+                )}
               </div>
             )}
           </div>
