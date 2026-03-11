@@ -6,6 +6,7 @@ export interface User {
   profile_image_url?: string;
   spotify_id?: string;
   spotify_connected?: boolean;
+  is_test_user?: boolean;
   created_at: string;
 }
 
@@ -69,6 +70,14 @@ export interface TrackPhotoMapping {
   updated_at: string;
   track?: ListeningHistory;
   photo?: Photo;
+}
+
+export interface TestSongPreview {
+  rowid: number | null;
+  track_name: string;
+  artist_name: string;
+  genre: string | null;
+  spotify_id: string | null;
 }
 
 export interface Memory {

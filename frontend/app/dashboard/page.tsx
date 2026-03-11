@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api-client';
-import { Music, Camera, Plus, LogOut, RefreshCw, History, Link2, Play } from 'lucide-react';
+import { Music, Camera, Plus, LogOut, RefreshCw, History, Link2, Play, FlaskConical } from 'lucide-react';
 import Link from 'next/link';
 import { format } from 'date-fns';
 import { getPhotoProxyUrl } from '@/lib/photo-utils';
@@ -15,7 +15,7 @@ import MemoryDetailModal from '@/components/MemoryDetailModal';
 import { Memory } from '@/lib/types';
 
 export default function DashboardPage() {
-  const { user, loading, logout, refreshUser } = useAuth();
+  const { user, loading, logout, refreshUser, isTestMode } = useAuth();
   const router = useRouter();
   const [playingUri, setPlayingUri] = useState<string | undefined>(undefined);
   const [searchingTrack, setSearchingTrack] = useState<number | null>(null);
@@ -96,6 +96,12 @@ export default function DashboardPage() {
                 <Music className="w-4 h-4 text-accent" />
               </div>
               <h1 className="text-xl font-bold tracking-tight">Memory<span className="text-accent">Mix</span></h1>
+              {isTestMode && (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-400 text-xs font-medium">
+                  <FlaskConical className="w-3 h-3" />
+                  Testing
+                </span>
+              )}
             </div>
             <div className="flex items-center gap-4">
               <span className="text-sm text-muted">
@@ -131,7 +137,7 @@ export default function DashboardPage() {
             </p>
           </Link>
 
-          {user.lastfm_username && (
+          {!isTestMode && user.lastfm_username && (
             <button
               onClick={handleSyncLastfm}
               className="group bg-surface border border-border rounded-xl p-6 hover:border-accent/40 transition-all text-left hover:shadow-[0_0_30px_rgba(20,184,166,0.06)]"
@@ -148,7 +154,7 @@ export default function DashboardPage() {
             </button>
           )}
 
-          {user.spotify_connected ? (
+          {!isTestMode && (user.spotify_connected ? (
             <div
               className="group bg-surface border border-[#1DB954]/20 rounded-xl p-6"
             >
@@ -187,7 +193,7 @@ export default function DashboardPage() {
                 Link your Spotify account to play tracks
               </p>
             </button>
-          )}
+          ))}
         </div>
 
         {/* Memories */}
@@ -206,7 +212,7 @@ export default function DashboardPage() {
                   key={memory.id}
                   memory={memory}
                   onClick={setSelectedMemory}
-                  spotifyConnected={!!user.spotify_connected}
+                  spotifyConnected={!isTestMode && !!user.spotify_connected}
                 />
               ))}
             </div>
@@ -274,7 +280,7 @@ export default function DashboardPage() {
                       {track.artist_name}
                     </div>
                   </div>
-                  {user.spotify_connected && (
+                  {!isTestMode && user.spotify_connected && (
                     <button
                       onClick={() => handlePlayTrack(track)}
                       disabled={searchingTrack === track.id}
@@ -318,7 +324,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Spotify Player — sticky bottom */}
-      {user.spotify_connected && (
+      {!isTestMode && user.spotify_connected && (
         <div className="fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-surface/95 backdrop-blur-md px-4 py-3">
           <div className="container mx-auto">
             <SpotifyPlayer spotifyUri={playingUri} />
@@ -331,7 +337,7 @@ export default function DashboardPage() {
         <MemoryDetailModal
           memory={selectedMemory}
           onClose={() => setSelectedMemory(null)}
-          spotifyConnected={!!user.spotify_connected}
+          spotifyConnected={!isTestMode && !!user.spotify_connected}
         />
       )}
     </div>

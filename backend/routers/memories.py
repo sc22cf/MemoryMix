@@ -124,7 +124,7 @@ async def _download_and_store_photo(
     photo.local_path = os.path.relpath(file_path, UPLOAD_DIR)
 
 
-@router.post("", response_model=MemoryResponse)
+@router.post("", response_model=MemoryResponse, status_code=201)
 async def create_memory(
     memory: MemoryCreate,
     db: AsyncSession = Depends(get_db),

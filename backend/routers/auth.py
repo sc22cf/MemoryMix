@@ -1,11 +1,16 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Body, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, func
 from datetime import datetime, timedelta
+import json
+import sqlite3
+import random
+from pathlib import Path
+from typing import Literal, Optional
 
 from database import get_db
-from models import User
-from schemas import LastfmAuthResponse, LastfmCallbackRequest, UserResponse, SpotifyCallbackRequest
+from models import User, ListeningHistory
+from schemas import LastfmAuthResponse, LastfmCallbackRequest, UserResponse, SpotifyCallbackRequest, TestLoginRequest
 from auth import get_lastfm_auth_url, create_access_token, get_current_user
 from config import get_settings
 from services.lastfm_service import LastfmService
@@ -170,3 +175,154 @@ async def connect_spotify(
         )
 
     return {"message": "Spotify connected successfully", "user": UserResponse.model_validate(user)}
+
+
+# ─── Testing Mode ──────────────────────────────────────────────
+
+MOOD_DB = Path(__file__).resolve().parents[1] / "services" / "mood_songs.db"
+TEST_SONGS_PER_SESSION = 15
+
+# 15 tracks verified present in mood_songs.db — spotify_id included to skip lookups
+HARDCODED_TEST_TRACKS = [
+    {"track_name": "Bohemian Rhapsody",           "artist_name": "Queen",              "genre": "classic rock",     "spotify_id": "7tFiyTwD0nx5a1eklYtX2J"},
+    {"track_name": "Creep",                       "artist_name": "Radiohead",          "genre": "alternative",      "spotify_id": "6b2oQwSGFkzsMtQruIWm2p"},
+    {"track_name": "Someone Like You",            "artist_name": "Adele",              "genre": "soul",             "spotify_id": "4kflIGfjdZJW4ot2ioixTB"},
+    {"track_name": "Happy",                       "artist_name": "Pharrell Williams",  "genre": "pop",              "spotify_id": "60nZcImufyMA1MKQY3dcCH"},
+    {"track_name": "'Till I Collapse",            "artist_name": "Eminem",             "genre": "rap",              "spotify_id": "4xkOaSrkexMciUUogZKVTS"},
+    {"track_name": "Do I Wanna Know?",            "artist_name": "Arctic Monkeys",     "genre": "indie rock",       "spotify_id": "5FVd6KXrgO9B3JPmC8OPst"},
+    {"track_name": "Stop Crying Your Heart Out",  "artist_name": "Oasis",              "genre": "britpop",          "spotify_id": "0JbVh3zDHYgVb1QxoNG0hu"},
+    {"track_name": "Apocalypse Please",           "artist_name": "Muse",               "genre": "alternative rock", "spotify_id": "6z0QCh7CTU9bE5C7TAHK4R"},
+    {"track_name": "Angel",                       "artist_name": "Massive Attack",     "genre": "trip-hop",         "spotify_id": "7uv632EkfwYhXoqf8rhYrg"},
+    {"track_name": "Walking in My Shoes",         "artist_name": "Depeche Mode",       "genre": "electronic",       "spotify_id": "0VokHXtSNOpnlMWDMT9kPD"},
+    {"track_name": "Violently Happy",             "artist_name": "Bjork",              "genre": "electronic",       "spotify_id": "1oyRhrmdRoJj0rUe7b22FS"},
+    {"track_name": "There Is A Light That Never Go", "artist_name": "The Smiths",      "genre": "indie",            "spotify_id": "0WQiDwKJclirSYG9v5tayI"},
+    {"track_name": "November Rain",               "artist_name": "Guns N' Roses",      "genre": "rock",             "spotify_id": "3YRCqOhFifThpSRFJ1VWFM"},
+    {"track_name": "Threads",                     "artist_name": "Portishead",         "genre": "trip-hop",         "spotify_id": "6LV9M06RS0sAMihWxsdLYX"},
+    {"track_name": "Hey You!!!",                  "artist_name": "The Cure",           "genre": "happy",            "spotify_id": "1WUSs195It8jj78gYMD9CT"},
+]
+
+
+def _resolve_hardcoded_songs(conn) -> list:
+    """Return hardcoded tracks with rowids looked up from mood_songs.db."""
+    results = []
+    for entry in HARDCODED_TEST_TRACKS:
+        cur = conn.execute(
+            "SELECT rowid FROM mood_songs WHERE spotify_id = ? LIMIT 1",
+            (entry["spotify_id"],),
+        )
+        row = cur.fetchone()
+        results.append({**entry, "rowid": row[0] if row else None})
+    return results
+
+
+def _get_random_songs(conn, count: int) -> list:
+    cur = conn.execute("SELECT COUNT(*) FROM mood_songs")
+    total = cur.fetchone()[0]
+    offsets = random.sample(range(total), min(count, total))
+    results = []
+    for offset in offsets:
+        row = conn.execute(
+            "SELECT rowid, spotify_id, track, artist, genre FROM mood_songs LIMIT 1 OFFSET ?",
+            (offset,),
+        ).fetchone()
+        if row:
+            rowid, spotify_id, track, artist, genre = row
+            results.append({"rowid": rowid, "track_name": track, "artist_name": artist,
+                            "genre": genre, "spotify_id": spotify_id})
+    return results
+
+
+def _get_songs_by_rowids(conn, rowids: list) -> list:
+    results = []
+    for rowid in rowids:
+        row = conn.execute(
+            "SELECT rowid, spotify_id, track, artist, genre FROM mood_songs WHERE rowid = ?",
+            (rowid,),
+        ).fetchone()
+        if row:
+            r, spotify_id, track, artist, genre = row
+            results.append({"rowid": r, "track_name": track, "artist_name": artist,
+                            "genre": genre, "spotify_id": spotify_id})
+    return results
+
+
+@router.get("/test/preview-songs")
+async def test_preview_songs(mode: Literal["hardcoded", "random"] = "random"):
+    """Return the song list for a test session without logging in (no side effects)."""
+    conn = sqlite3.connect(str(MOOD_DB))
+    songs = _resolve_hardcoded_songs(conn) if mode == "hardcoded" else _get_random_songs(conn, TEST_SONGS_PER_SESSION)
+    conn.close()
+    return songs
+
+
+@router.post("/test/login")
+async def test_login(
+    db: AsyncSession = Depends(get_db),
+    body: Optional[TestLoginRequest] = Body(default=None),
+):
+    """Create (or reuse) a temporary test user and seed listening history from mood_songs.db."""
+    mode = body.mode if body else "random"
+    rowids = body.rowids if body else None
+
+    # Reuse existing test user to avoid clutter
+    result = await db.execute(
+        select(User).where(User.is_test_user == True).order_by(User.id.desc())
+    )
+    user = result.scalar_one_or_none()
+
+    if not user:
+        user = User(display_name="Tester", is_test_user=True)
+        db.add(user)
+        await db.flush()
+
+    # Always reseed — the tester may have changed their song selection
+    today = datetime.utcnow().date()
+    conn = sqlite3.connect(str(MOOD_DB))
+    if mode == "hardcoded":
+        song_data = _resolve_hardcoded_songs(conn)
+    elif rowids:
+        song_data = _get_songs_by_rowids(conn, rowids)
+    else:
+        song_data = _get_random_songs(conn, TEST_SONGS_PER_SESSION)
+    conn.close()
+
+    # Delete any existing today rows, then insert fresh
+    result_old = await db.execute(
+        select(ListeningHistory).where(
+            ListeningHistory.user_id == user.id,
+            func.date(ListeningHistory.played_at) == today,
+        )
+    )
+    for old_row in result_old.scalars().all():
+        await db.delete(old_row)
+    await db.flush()
+
+    base_time = datetime.combine(today, datetime.min.time().replace(hour=9))
+    for i, song in enumerate(song_data[:TEST_SONGS_PER_SESSION]):
+        spotify_id = song["spotify_id"]
+        lh = ListeningHistory(
+            user_id=user.id,
+            track_id=spotify_id or f"test_{i}",
+            track_name=song["track_name"],
+            artist_name=song["artist_name"],
+            album_name=song["genre"] or "Unknown Album",
+            album_image_url=None,
+            played_at=base_time + timedelta(minutes=i * 15),
+            duration_ms=210000,
+            track_url="",
+            source="test",
+            spotify_uri=f"spotify:track:{spotify_id}" if spotify_id else None,
+        )
+        db.add(lh)
+
+    await db.commit()
+    await db.refresh(user)
+
+    access_token = create_access_token(data={"sub": str(user.id)})
+
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "expires_in": settings.access_token_expire_minutes * 60,
+        "user": UserResponse.model_validate(user),
+    }

@@ -170,25 +170,43 @@ _SCENE_TO_MOOD: dict[str, str] = {
 
 
 def _augment_query(memory_description: str) -> str:
-    """Augment a scene/memory description with mood vocabulary.
+    """Build a query whose sentence structure mirrors build_mood_text().
 
-    Scans the description for known scene keywords and appends
-    matching mood terms so the embedding sits closer to the
-    mood-tag space used by the song embeddings.
+    Song embeddings follow:
+      S1: "This song feels {tags} with {arousal}"
+      S2: "The atmosphere is {valence}, feeling {dominance}"
+      S3: "It carries {genre atmosphere}"
+
+    Query mirrors that with:
+      S1: "This moment feels {mood words} with a steady emotional energy."
+      S2: "The atmosphere is shaped by {description}."
+      S3: "It carries a vivid emotional atmosphere similar to music."
     """
     lower = memory_description.lower()
-    matched_moods: list[str] = []
+    mood_sets: list[str] = []
 
     for keyword, moods in _SCENE_TO_MOOD.items():
         if keyword in lower:
-            matched_moods.append(moods)
+            mood_sets.append(moods)
 
-    if not matched_moods:
-        # No scene keywords matched — wrap the raw description
-        return f"A memory that feels like: {memory_description}"
+    if mood_sets:
+        # Deduplicate mood words across all matched scenes, preserve order
+        seen: set[str] = set()
+        unique_moods: list[str] = []
+        for group in mood_sets:
+            for word in (w.strip() for w in group.split(",")):
+                if word not in seen:
+                    seen.add(word)
+                    unique_moods.append(word)
+        mood_str = ", ".join(unique_moods[:8])  # cap to avoid noise
+    else:
+        mood_str = "vivid, memorable, emotional"
 
-    mood_str = ". ".join(f"This feels {m}" for m in matched_moods)
-    return f"{memory_description}. {mood_str}."
+    return (
+        f"This moment feels {mood_str} with a steady emotional energy. "
+        f"The atmosphere is shaped by {memory_description}. "
+        f"It carries a vivid emotional atmosphere similar to music."
+    )
 
 
 # ---------------------------------------------------------------------------

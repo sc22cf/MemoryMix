@@ -1,6 +1,6 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from datetime import datetime
-from typing import Optional, List
+from typing import Literal, Optional, List
 
 
 # User Schemas
@@ -19,6 +19,7 @@ class UserResponse(UserBase):
     profile_image_url: Optional[str] = None
     spotify_id: Optional[str] = None
     spotify_connected: bool = False
+    is_test_user: bool = False
     created_at: datetime
     
     class Config:
@@ -92,7 +93,7 @@ class PhotoResponse(PhotoBase):
 # Track Photo Mapping Schemas
 class TrackPhotoMappingBase(BaseModel):
     photo_id: int
-    track_id: int
+    track_id: Optional[int] = None
     is_auto_suggested: bool = False
     confidence_score: Optional[int] = None
 
@@ -107,7 +108,7 @@ class TrackPhotoMappingUpdate(BaseModel):
 
 
 class MoodCandidate(BaseModel):
-    track_id: int
+    track_id: Optional[int] = None
     track_name: str
     artist_name: str
     album_name: Optional[str] = None
@@ -140,6 +141,13 @@ class MemoryBase(BaseModel):
     title: str
     description: Optional[str] = None
     memory_date: datetime
+
+    @field_validator('memory_date', mode='before')
+    @classmethod
+    def validate_memory_date(cls, v):
+        if isinstance(v, (int, float)):
+            raise ValueError('memory_date must be an ISO 8601 datetime string (e.g. "2026-03-11T18:00:00"), not a number')
+        return v
 
 
 class MemoryCreate(MemoryBase):
@@ -211,6 +219,21 @@ class SpotifySearchResult(BaseModel):
     artist: Optional[str] = None
     album: Optional[str] = None
     image: Optional[str] = None
+
+
+# ─── Testing Mode ──────────────────────────────────────────────
+
+class TestSongPreview(BaseModel):
+    rowid: Optional[int] = None
+    track_name: str
+    artist_name: str
+    genre: Optional[str] = None
+    spotify_id: Optional[str] = None
+
+
+class TestLoginRequest(BaseModel):
+    mode: Literal["hardcoded", "random"] = "random"
+    rowids: Optional[List[int]] = None
 
 
 

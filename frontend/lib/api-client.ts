@@ -63,6 +63,17 @@ class ApiClient {
     return data;
   }
 
+  async getTestPreviewSongs(mode: 'hardcoded' | 'random') {
+    const { data } = await this.client.get(`/auth/test/preview-songs?mode=${mode}`);
+    return data;
+  }
+
+  async testLogin(mode: 'hardcoded' | 'random' = 'random', rowids?: number[]) {
+    const { data } = await this.client.post('/auth/test/login', { mode, rowids });
+    this.setToken(data.access_token);
+    return data;
+  }
+
   async getCurrentUser() {
     const { data } = await this.client.get('/auth/me');
     return data;

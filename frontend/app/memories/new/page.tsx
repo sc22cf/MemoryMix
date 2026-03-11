@@ -20,7 +20,7 @@ declare global {
 }
 
 export default function NewMemoryPage() {
-  const { user } = useAuth();
+  const { user, isTestMode } = useAuth();
   const router = useRouter();
   const googleAuth = useGoogleAuth();
   const queryClient = useQueryClient();
@@ -214,23 +214,27 @@ export default function NewMemoryPage() {
             </label>
             
             <div className="mb-4 flex gap-2 flex-wrap">
-              <button
-                type="button"
-                onClick={handleGooglePhotosPicker}
-                className="flex items-center gap-2 bg-accent hover:bg-accent-hover text-background px-4 py-2 rounded-lg text-sm font-medium"
-              >
-                <ImageIcon className="w-4 h-4" />
-                {googleAuth.isSignedIn ? 'Google Photos' : 'Sign in to Google'}
-              </button>
+              {!isTestMode && (
+                <>
+                  <button
+                    type="button"
+                    onClick={handleGooglePhotosPicker}
+                    className="flex items-center gap-2 bg-accent hover:bg-accent-hover text-background px-4 py-2 rounded-lg text-sm font-medium"
+                  >
+                    <ImageIcon className="w-4 h-4" />
+                    {googleAuth.isSignedIn ? 'Google Photos' : 'Sign in to Google'}
+                  </button>
 
-              {googleAuth.isSignedIn && (
-                <button
-                  type="button"
-                  onClick={googleAuth.signOut}
-                  className="flex items-center gap-2 text-muted px-3 py-2 rounded-lg hover:bg-surface-hover text-xs"
-                >
-                  Sign out
-                </button>
+                  {googleAuth.isSignedIn && (
+                    <button
+                      type="button"
+                      onClick={googleAuth.signOut}
+                      className="flex items-center gap-2 text-muted px-3 py-2 rounded-lg hover:bg-surface-hover text-xs"
+                    >
+                      Sign out
+                    </button>
+                  )}
+                </>
               )}
               
               <label className="flex items-center gap-2 bg-surface-hover border border-border hover:border-accent/30 text-foreground px-4 py-2 rounded-lg cursor-pointer text-sm font-medium transition-colors">
@@ -245,13 +249,13 @@ export default function NewMemoryPage() {
               </label>
             </div>
 
-            {!googleAuth.isLoaded && (
+            {!isTestMode && !googleAuth.isLoaded && (
               <p className="text-xs text-muted/50 mb-2">
                 Loading Google Photos integration...
               </p>
             )}
             
-            {googleAuth.isLoaded && !googleAuth.isSignedIn && (
+            {!isTestMode && googleAuth.isLoaded && !googleAuth.isSignedIn && (
               <p className="text-xs text-accent/70 mb-2">
                 Sign in to access your Google Photos library, or upload files directly.
               </p>
