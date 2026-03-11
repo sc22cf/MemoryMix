@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { apiClient } from '@/lib/api-client';
@@ -16,6 +16,7 @@ export default function Home() {
   const [testSongs, setTestSongs] = useState<TestSongPreview[]>([]);
   const [testSongsLoading, setTestSongsLoading] = useState(false);
   const [startingTest, setStartingTest] = useState(false);
+  const testPanelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!loading && user) {
@@ -51,6 +52,9 @@ export default function Home() {
     }
     setShowTestSetup(true);
     fetchTestSongs(testMode);
+    setTimeout(() => {
+      testPanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }, 50);
   };
 
   const handleTestModeToggle = (mode: 'hardcoded' | 'random') => {
@@ -139,7 +143,7 @@ export default function Home() {
               className="inline-flex items-center gap-3 bg-accent hover:bg-accent-hover text-background font-semibold py-4 px-8 rounded-xl text-lg transition-all hover:shadow-[0_0_30px_rgba(20,184,166,0.3)] active:scale-[0.98]"
             >
               <Music className="w-5 h-5" />
-              Sign in with Last.fm
+              Presentation Mode
             </button>
             <button
               onClick={handleTestingModeClick}
@@ -156,7 +160,7 @@ export default function Home() {
 
           {/* Test Setup Panel */}
           {showTestSetup && (
-            <div className="mt-10 max-w-2xl mx-auto bg-surface border border-amber-500/30 rounded-2xl p-6 text-left">
+            <div ref={testPanelRef} className="mt-10 max-w-2xl mx-auto bg-surface border border-amber-500/30 rounded-2xl p-6 text-left">
               <div className="flex items-center gap-2 mb-5">
                 <FlaskConical className="w-5 h-5 text-amber-400" />
                 <h2 className="text-lg font-semibold text-foreground">Test Setup</h2>
@@ -187,7 +191,7 @@ export default function Home() {
               </div>
 
               {/* Song List */}
-              <div className="rounded-lg border border-border bg-background max-h-80 overflow-y-auto mb-5">
+              <div className="rounded-lg border border-border bg-background min-h-[320px] max-h-80 overflow-y-auto mb-5">
                 {testSongsLoading ? (
                   <div className="flex items-center justify-center py-10">
                     <div className="animate-spin rounded-full h-6 w-6 border-2 border-accent border-t-transparent" />

@@ -6,7 +6,7 @@ import json
 import sqlite3
 import random
 from pathlib import Path
-from typing import Optional
+from typing import Literal, Optional
 
 from database import get_db
 from models import User, ListeningHistory
@@ -182,45 +182,36 @@ async def connect_spotify(
 MOOD_DB = Path(__file__).resolve().parents[1] / "services" / "mood_songs.db"
 TEST_SONGS_PER_SESSION = 15
 
-# 15 well-known tracks covering diverse moods — used when mode="hardcoded"
+# 15 tracks verified present in mood_songs.db — spotify_id included to skip lookups
 HARDCODED_TEST_TRACKS = [
-    ("Bohemian Rhapsody",      "Queen"),
-    ("Smells Like Teen Spirit", "Nirvana"),
-    ("Lose Yourself",          "Eminem"),
-    ("Blinding Lights",        "The Weeknd"),
-    ("Shape of You",           "Ed Sheeran"),
-    ("Hotel California",       "Eagles"),
-    ("Billie Jean",            "Michael Jackson"),
-    ("Rolling in the Deep",    "Adele"),
-    ("Mr. Brightside",         "The Killers"),
-    ("Africa",                 "Toto"),
-    ("Stairway to Heaven",     "Led Zeppelin"),
-    ("Someone Like You",       "Adele"),
-    ("Happy",                  "Pharrell Williams"),
-    ("Creep",                  "Radiohead"),
-    ("Sweet Child O' Mine",    "Guns N' Roses"),
+    {"track_name": "Bohemian Rhapsody",           "artist_name": "Queen",              "genre": "classic rock",     "spotify_id": "7tFiyTwD0nx5a1eklYtX2J"},
+    {"track_name": "Creep",                       "artist_name": "Radiohead",          "genre": "alternative",      "spotify_id": "6b2oQwSGFkzsMtQruIWm2p"},
+    {"track_name": "Someone Like You",            "artist_name": "Adele",              "genre": "soul",             "spotify_id": "4kflIGfjdZJW4ot2ioixTB"},
+    {"track_name": "Happy",                       "artist_name": "Pharrell Williams",  "genre": "pop",              "spotify_id": "60nZcImufyMA1MKQY3dcCH"},
+    {"track_name": "'Till I Collapse",            "artist_name": "Eminem",             "genre": "rap",              "spotify_id": "4xkOaSrkexMciUUogZKVTS"},
+    {"track_name": "Do I Wanna Know?",            "artist_name": "Arctic Monkeys",     "genre": "indie rock",       "spotify_id": "5FVd6KXrgO9B3JPmC8OPst"},
+    {"track_name": "Stop Crying Your Heart Out",  "artist_name": "Oasis",              "genre": "britpop",          "spotify_id": "0JbVh3zDHYgVb1QxoNG0hu"},
+    {"track_name": "Apocalypse Please",           "artist_name": "Muse",               "genre": "alternative rock", "spotify_id": "6z0QCh7CTU9bE5C7TAHK4R"},
+    {"track_name": "Angel",                       "artist_name": "Massive Attack",     "genre": "trip-hop",         "spotify_id": "7uv632EkfwYhXoqf8rhYrg"},
+    {"track_name": "Walking in My Shoes",         "artist_name": "Depeche Mode",       "genre": "electronic",       "spotify_id": "0VokHXtSNOpnlMWDMT9kPD"},
+    {"track_name": "Violently Happy",             "artist_name": "Bjork",              "genre": "electronic",       "spotify_id": "1oyRhrmdRoJj0rUe7b22FS"},
+    {"track_name": "There Is A Light That Never Go", "artist_name": "The Smiths",      "genre": "indie",            "spotify_id": "0WQiDwKJclirSYG9v5tayI"},
+    {"track_name": "November Rain",               "artist_name": "Guns N' Roses",      "genre": "rock",             "spotify_id": "3YRCqOhFifThpSRFJ1VWFM"},
+    {"track_name": "Threads",                     "artist_name": "Portishead",         "genre": "trip-hop",         "spotify_id": "6LV9M06RS0sAMihWxsdLYX"},
+    {"track_name": "Hey You!!!",                  "artist_name": "The Cure",           "genre": "happy",            "spotify_id": "1WUSs195It8jj78gYMD9CT"},
 ]
 
 
 def _resolve_hardcoded_songs(conn) -> list:
-    """Look up the hardcoded track list in mood_songs.db; returns dicts."""
+    """Return hardcoded tracks with rowids looked up from mood_songs.db."""
     results = []
-    for track_name, artist_name in HARDCODED_TEST_TRACKS:
+    for entry in HARDCODED_TEST_TRACKS:
         cur = conn.execute(
-            "SELECT rowid, spotify_id, artist, genre FROM mood_songs "
-            "WHERE LOWER(track) = LOWER(?) AND LOWER(artist) = LOWER(?) LIMIT 1",
-            (track_name, artist_name),
+            "SELECT rowid FROM mood_songs WHERE spotify_id = ? LIMIT 1",
+            (entry["spotify_id"],),
         )
         row = cur.fetchone()
-        if row:
-            rowid, spotify_id, found_artist, genre = row
-            results.append({"rowid": rowid, "track_name": track_name,
-                            "artist_name": found_artist or artist_name,
-                            "genre": genre, "spotify_id": spotify_id})
-        else:
-            # Track not in mood DB — include anyway so tester sees it
-            results.append({"rowid": None, "track_name": track_name,
-                            "artist_name": artist_name, "genre": None, "spotify_id": None})
+        results.append({**entry, "rowid": row[0] if row else None})
     return results
 
 
@@ -256,7 +247,7 @@ def _get_songs_by_rowids(conn, rowids: list) -> list:
 
 
 @router.get("/test/preview-songs")
-async def test_preview_songs(mode: str = "random"):
+async def test_preview_songs(mode: Literal["hardcoded", "random"] = "random"):
     """Return the song list for a test session without logging in (no side effects)."""
     conn = sqlite3.connect(str(MOOD_DB))
     songs = _resolve_hardcoded_songs(conn) if mode == "hardcoded" else _get_random_songs(conn, TEST_SONGS_PER_SESSION)

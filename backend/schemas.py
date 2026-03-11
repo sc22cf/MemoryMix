@@ -1,6 +1,6 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from datetime import datetime
-from typing import Optional, List
+from typing import Literal, Optional, List
 
 
 # User Schemas
@@ -142,6 +142,13 @@ class MemoryBase(BaseModel):
     description: Optional[str] = None
     memory_date: datetime
 
+    @field_validator('memory_date', mode='before')
+    @classmethod
+    def validate_memory_date(cls, v):
+        if isinstance(v, (int, float)):
+            raise ValueError('memory_date must be an ISO 8601 datetime string (e.g. "2026-03-11T18:00:00"), not a number')
+        return v
+
 
 class MemoryCreate(MemoryBase):
     photo: Optional[PhotoBase] = None
@@ -225,7 +232,7 @@ class TestSongPreview(BaseModel):
 
 
 class TestLoginRequest(BaseModel):
-    mode: str = "random"          # "hardcoded" | "random"
+    mode: Literal["hardcoded", "random"] = "random"
     rowids: Optional[List[int]] = None
 
 
