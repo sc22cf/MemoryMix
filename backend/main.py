@@ -1,13 +1,18 @@
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
 import traceback
+import os
 
 from database import init_db
 from config import get_settings
 from routers import auth, lastfm, memories, mappings, spotify
 from routers.memories import photos_router
+
+# Uploads directory — /app/uploads in Docker
+UPLOADS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "uploads")
 
 settings = get_settings()
 
@@ -52,6 +57,11 @@ app.include_router(spotify.router)
 app.include_router(memories.router)
 app.include_router(photos_router)
 app.include_router(mappings.router)
+
+
+# Serve uploaded photos as static files at /photos/<filename>
+os.makedirs(UPLOADS_DIR, exist_ok=True)
+app.mount("/photos", StaticFiles(directory=UPLOADS_DIR), name="photos")
 
 
 @app.get("/")

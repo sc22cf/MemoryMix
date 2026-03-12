@@ -1,0 +1,23 @@
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+.venv
+venv
+env
+
+# Runtime database (mounted as a Docker volume)
+memorymix.db
+data/
+
+# Uploaded photos (mounted as a Docker volume)
+uploads/
+
+# Environment secrets
+.env
+
+# Development / test artefacts
+*.egg-info
+.pytest_cache
+.mypy_cache

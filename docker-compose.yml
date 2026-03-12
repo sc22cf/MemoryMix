@@ -1,0 +1,36 @@
+services:
+  backend:
+    build:
+      context: ./backend
+    ports:
+      - "8000:8000"
+    env_file:
+      - ./backend/.env
+    environment:
+      # Store the runtime SQLite database in a persistent volume
+      DATABASE_URL: sqlite+aiosqlite:////app/data/memorymix.db
+      # Allow the frontend origin through CORS
+      FRONTEND_URL: http://127.0.0.1:3000
+    volumes:
+      # Persist the SQLite database across container restarts
+      - db_data:/app/data
+      # Persist uploaded photos — bind mount so files are visible on host
+      - ./uploads:/app/uploads
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        # Baked in at build time — must point to where the browser reaches the backend
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://127.0.0.1:8000}
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: production
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  db_data:

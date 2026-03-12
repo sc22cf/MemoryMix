@@ -27,6 +27,7 @@ export default function NewMemoryPage() {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [selectedPhoto, setSelectedPhoto] = useState<any | null>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
   const [pickerError, setPickerError] = useState<string | null>(null);
   // Photo timestamp tracking
@@ -37,6 +38,7 @@ export default function NewMemoryPage() {
     if (photos.length > 0) {
       const photo = photos[0];
       setSelectedPhoto(photo);
+      setSelectedFile(null);
       setPhotoTimeSource('google');
       setManualPhotoTime('');
     }
@@ -92,6 +94,7 @@ export default function NewMemoryPage() {
         width: null,
         height: null,
       });
+      setSelectedFile(file);
       if (exifTime) {
         setPhotoTimeSource('exif');
         setManualPhotoTime('');
@@ -140,13 +143,24 @@ export default function NewMemoryPage() {
     setLoading(true);
 
     try {
-      await apiClient.createMemory({
-        title,
-        description,
-        memory_date: selectedPhoto.creation_time,
-        photo: selectedPhoto,
-        google_access_token: googleAuth.accessToken,
-      });
+      if (selectedFile) {
+        // Local file upload — use multipart form
+        const formData = new FormData();
+        formData.append('title', title);
+        if (description) formData.append('description', description);
+        formData.append('memory_date', selectedPhoto.creation_time);
+        formData.append('photo', selectedFile);
+        await apiClient.uploadMemory(formData);
+      } else {
+        // Google Photos — use JSON endpoint
+        await apiClient.createMemory({
+          title,
+          description,
+          memory_date: selectedPhoto.creation_time,
+          photo: selectedPhoto,
+          google_access_token: googleAuth.accessToken,
+        });
+      }
 
       await queryClient.invalidateQueries({ queryKey: ['memories'] });
       // Navigate to dashboard to see all created memories
@@ -274,6 +288,7 @@ export default function NewMemoryPage() {
                     type="button"
                     onClick={() => {
                       setSelectedPhoto(null);
+                      setSelectedFile(null);
                       setPhotoTimeSource('none');
                       setManualPhotoTime('');
                     }}
