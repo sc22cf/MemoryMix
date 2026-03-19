@@ -117,6 +117,13 @@ class ApiClient {
     return data;
   }
 
+  async uploadMemory(formData: FormData) {
+    const { data } = await this.client.post('/memories/upload', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return data;
+  }
+
   async getMemories(skip: number = 0, limit: number = 20) {
     const { data } = await this.client.get(`/memories?skip=${skip}&limit=${limit}`);
     return data;

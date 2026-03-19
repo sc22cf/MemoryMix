@@ -73,6 +73,19 @@ export default function MemoryCard({ memory, onClick, spotifyConnected }: Memory
   const mapping = memory.mapping;
   const track = mapping?.track;
 
+  // Reset cached playback data when the track changes (e.g. after editing)
+  const trackKey = track ? `${track.id}` : null;
+  const prevTrackKeyRef = useRef(trackKey);
+  useEffect(() => {
+    if (prevTrackKeyRef.current !== trackKey) {
+      prevTrackKeyRef.current = trackKey;
+      resolvedRef.current = false;
+      previewUrlRef.current = null;
+      spotifyUriRef.current = null;
+      playbackModeRef.current = null;
+    }
+  }, [trackKey]);
+
   // SDK-based playing status for this card
   const isThisTrackViaSdk =
     spotifyUriRef.current && playerState.track?.uri === spotifyUriRef.current;
