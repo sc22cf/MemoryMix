@@ -33,6 +33,8 @@ https://documenter.getpostman.com/view/53107994/2sBXiestu1
 
 ### 1. Configure environment variables
 
+> **Testing Mode** works without any of the above keys set. You can leave them as placeholder strings if you only need the testing demo.
+
 **Backend** — copy the example and fill in your values:
 
 ```bash
@@ -77,7 +79,6 @@ NEXT_PUBLIC_GOOGLE_CLIENT_ID=your_google_client_id
 NEXT_PUBLIC_GOOGLE_PICKER_API_KEY=your_google_picker_api_key
 ```
 
-> **Testing Mode** works without any of the above keys set. You can leave them as placeholder strings if you only need the testing demo.
 
 ### 2. Build and start
 
