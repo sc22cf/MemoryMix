@@ -172,6 +172,16 @@ The description is the most important field — it drives the mood matching. Be 
 | *"Sprinting through rain to catch the last train, heart pounding, out of breath but laughing."* | Energetic, anxious, exhilarated |
 | *"A dark, crowded club with deep bass shaking the floor. Neon lights cutting through smoke."* | Intense, dark, electronic |
 | *"An empty classroom after everyone has left, late afternoon sun streaming through the windows."* | Nostalgic, bittersweet, calm |
+| *"Dancing all night at a sweaty club, the bass shaking the walls, neon lights and a crowd losing themselves to the music."* | Euphoric, dark, electric |
+| *"A long road trip through the mountains at sunrise, windows down, singing along to the radio with friends."* | Uplifting, energetic, hopeful |
+| *"Sitting alone in a cold flat after a breakup, staring at the rain streaking down the window, too tired to move."* | Sad, melancholic, introspective |
+| *"A family Christmas morning, kids tearing open presents, the smell of coffee and pine needles in the air."* | Warm, nostalgic, celebratory |
+| *"Sprinting the last kilometre of a brutal gym session, lungs screaming, determined to finish the workout."* | Intense, aggressive, driving |
+| *"Walking through an ancient forest at dawn, mist hanging between the trees, completely at peace with the world."* | Peaceful, atmospheric, meditative |
+| *"An outdoor summer festival at golden hour, thousands of people swaying, a band playing on a distant stage."* | Euphoric, summery, carefree |
+| *"A quiet wedding in the autumn countryside, leaves turning gold, the couple sharing their first dance under fairy lights."* | Romantic, bittersweet, joyous |
+| *"Studying late into the night with a glass of wine, the city silent outside, completely in the zone."* | Introspective, nocturnal, sophisticated |
+| *"Standing on a cliff top in a winter storm, waves crashing below, wind so fierce it is hard to stand upright."* | Dark, epic, powerful |
 
 > **Tip:** The more descriptive and emotionally specific you are, the better the match. Short or generic descriptions like "a photo of my dog" will produce weaker results.
 
