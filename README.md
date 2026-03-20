@@ -4,7 +4,10 @@ MemoryMix is a web application that pairs your personal photos with the songs yo
 
 Upload a photo, describe the moment, and MemoryMix analyses the mood of your description against your listening history using sentence embeddings and cosine similarity to find the song that best fits how that memory feels.
 
-## API Full Documentation 
+## API Documentation 
+
+- The pdf version of the API Doc is in the file named API_DOCUMENTATION.pdf.
+- If you want to see all request/response examples, please visit the link where the full documentation is hosted on PostMan.
 https://documenter.getpostman.com/view/53107994/2sBXiestu1
 
 ## Features
