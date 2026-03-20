@@ -120,30 +120,6 @@ docker compose down -v
 
 ---
 
-## Running locally (without Docker)
-
-### Backend
-
-```bash
-cd backend
-python -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-uvicorn main:app --reload
-```
-
-### Frontend
-
-```bash
-cp frontend/.env.example frontend/.env.local
-# Edit frontend/.env.local with your values
-cd frontend
-npm install
-npm run dev
-```
-
----
-
 ## Project structure
 
 ```
