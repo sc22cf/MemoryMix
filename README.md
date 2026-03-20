@@ -96,8 +96,9 @@ docker compose up
 
 | Service | URL |
 |---|---|
-| Frontend | http://localhost:3000 |
+| Frontend | http://127.0.0.1:3000 |
 | Backend API | http://localhost:8000 |
+> **localhost** will not work on frontend due to CORS configurations and restrictions with Spotify API 
 
 ### 4. Stop
 
