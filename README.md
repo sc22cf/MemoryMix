@@ -4,6 +4,9 @@ MemoryMix is a web application that pairs your personal photos with the songs yo
 
 Upload a photo, describe the moment, and MemoryMix analyses the mood of your description against your listening history using sentence embeddings and cosine similarity to find the song that best fits how that memory feels.
 
+## API Full Documentation 
+https://documenter.getpostman.com/view/53107994/2sBXiestu1
+
 ## Features
 
 - **Mood-based song matching** — photo descriptions are embedded and ranked against a 61K-song dataset using sentence-transformer similarity
@@ -30,7 +33,7 @@ Upload a photo, describe the moment, and MemoryMix analyses the mood of your des
 
 ### 1. Configure environment variables
 
-Copy the example env file and fill in your values:
+**Backend** — copy the example and fill in your values:
 
 ```bash
 cp backend/.env.example backend/.env
@@ -57,7 +60,24 @@ GOOGLE_PICKER_API_KEY=your_google_picker_api_key
 SECRET_KEY=a-long-random-secret-string
 ```
 
-> **Testing Mode** works without any of the above keys set. You can leave them as placeholder strings if you only need the demo.
+**Frontend** — copy the example and fill in your values:
+
+```bash
+cp frontend/.env.example frontend/.env.local
+```
+
+Edit `frontend/.env.local`:
+
+```env
+# Backend API URL (defaults to http://localhost:8000 if not set)
+NEXT_PUBLIC_API_URL=http://localhost:8000
+
+# Google API Credentials (required for Google Photos integration)
+NEXT_PUBLIC_GOOGLE_CLIENT_ID=your_google_client_id
+NEXT_PUBLIC_GOOGLE_PICKER_API_KEY=your_google_picker_api_key
+```
+
+> **Testing Mode** works without any of the above keys set. You can leave them as placeholder strings if you only need the testing demo.
 
 ### 2. Build and start
 
@@ -77,7 +97,6 @@ docker compose up
 |---|---|
 | Frontend | http://localhost:3000 |
 | Backend API | http://localhost:8000 |
-| API docs (Swagger) | http://localhost:8000/docs |
 
 ### 4. Stop
 
@@ -108,6 +127,8 @@ uvicorn main:app --reload
 ### Frontend
 
 ```bash
+cp frontend/.env.example frontend/.env.local
+# Edit frontend/.env.local with your values
 cd frontend
 npm install
 npm run dev

@@ -127,6 +127,13 @@ class MemoryJoiner:
         conn = self._get_conn()
         cur = conn.cursor()
 
+        tables = {r[0] for r in cur.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='mood_songs'"
+        )}
+        if not tables:
+            conn.close()
+            return  # DB not populated yet — ingest_csv_to_db must run first
+
         cols = {row[1] for row in cur.execute("PRAGMA table_info(mood_songs)")}
         needs_title = "title_norm" not in cols
         needs_canonical = "canonical_name" not in cols
