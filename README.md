@@ -100,7 +100,11 @@ docker compose up
 | Backend API | http://localhost:8000 |
 > **localhost** will not work on frontend due to CORS configurations and restrictions with Spotify API 
 
-### 4. Refer to the TESTING_GUIDE.md file for instructions to use the application when testing. This will give you examples on mood descriptions recommended to get the best match between a song and a memory.
+### 4. Testing the App
+
+```bash
+Refer to the TESTING_GUIDE.md file for instructions to use the application when testing. This will give you examples on mood descriptions recommended to get the best match between a song and a memory.
+```
 
 ### 5. Stop
 
